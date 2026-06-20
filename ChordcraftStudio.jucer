@@ -7,6 +7,10 @@
       <FILE id="tUcXNe" name="chords.json" compile="0" resource="1" file="Resources/chords.json"/>
     </GROUP>
     <GROUP id="{86700018-E65D-50AE-9F3E-72C94B4664F4}" name="Source">
+      <FILE id="dbH001" name="ChordDatabase.h" compile="0" resource="0" file="Source/ChordDatabase.h"/>
+      <FILE id="dbC001" name="ChordDatabase.cpp" compile="1" resource="0" file="Source/ChordDatabase.cpp"/>
+      <FILE id="apH001" name="ChordcraftAudioProcessor.h" compile="0" resource="0" file="Source/ChordcraftAudioProcessor.h"/>
+      <FILE id="apC001" name="ChordcraftAudioProcessor.cpp" compile="1" resource="0" file="Source/ChordcraftAudioProcessor.cpp"/>
       <FILE id="leExlC" name="ThemeManager.h" compile="0" resource="0" file="Source/ThemeManager.h"/>
       <FILE id="ChL57X" name="ChordArrangement.h" compile="0" resource="0"
             file="Source/ChordArrangement.h"/>

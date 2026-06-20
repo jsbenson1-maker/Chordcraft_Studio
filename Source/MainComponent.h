@@ -3,6 +3,7 @@
 #include "ChordArrangement.h"
 #include "TimelineComponent.h"
 #include "InspectorComponent.h"
+#include "ChordcraftAudioProcessor.h"
 
 class MainComponent  : public juce::Component
 {
@@ -14,6 +15,11 @@ public:
     void resized() override;
 
 private:
+    // Audio hardware routing & engine
+    juce::AudioDeviceManager deviceManager;
+    juce::AudioProcessorPlayer processorPlayer;
+    std::unique_ptr<ChordcraftAudioProcessor> audioProcessor;
+
     // Central data model
     ChordArrangement arrangement;
     

@@ -37,6 +37,10 @@ add_library( ${BINARY_NAME}
     SHARED
 
     "../../../Resources/chords.json"
+    "../../../Source/ChordDatabase.h"
+    "../../../Source/ChordDatabase.cpp"
+    "../../../Source/ChordcraftAudioProcessor.h"
+    "../../../Source/ChordcraftAudioProcessor.cpp"
     "../../../Source/ThemeManager.h"
     "../../../Source/ChordArrangement.h"
     "../../../Source/InspectorComponent.cpp"
@@ -2415,6 +2419,8 @@ add_library( ${BINARY_NAME}
 
 set_source_files_properties(
     "../../../Resources/chords.json"
+    "../../../Source/ChordDatabase.h"
+    "../../../Source/ChordcraftAudioProcessor.h"
     "../../../Source/ThemeManager.h"
     "../../../Source/ChordArrangement.h"
     "../../../Source/InspectorComponent.h"

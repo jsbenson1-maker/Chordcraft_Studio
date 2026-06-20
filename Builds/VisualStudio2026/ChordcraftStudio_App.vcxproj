@@ -146,6 +146,8 @@
     <Lib/>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\ChordDatabase.cpp"/>
+    <ClCompile Include="..\..\Source\ChordcraftAudioProcessor.cpp"/>
     <ClCompile Include="..\..\Source\InspectorComponent.cpp"/>
     <ClCompile Include="..\..\Source\Main.cpp"/>
     <ClCompile Include="..\..\Source\TimelineComponent.cpp"/>
@@ -2942,6 +2944,8 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_gui_extra.cpp"/>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\ChordDatabase.h"/>
+    <ClInclude Include="..\..\Source\ChordcraftAudioProcessor.h"/>
     <ClInclude Include="..\..\Source\ThemeManager.h"/>
     <ClInclude Include="..\..\Source\ChordArrangement.h"/>
     <ClInclude Include="..\..\Source\InspectorComponent.h"/>

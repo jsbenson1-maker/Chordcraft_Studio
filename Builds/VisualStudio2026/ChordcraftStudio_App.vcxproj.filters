@@ -688,6 +688,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\Source\ChordDatabase.cpp">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\ChordcraftAudioProcessor.cpp">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Source\InspectorComponent.cpp">
       <Filter>ChordcraftStudio\Source</Filter>
     </ClCompile>
@@ -3678,6 +3684,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Source\ChordDatabase.h">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ChordcraftAudioProcessor.h">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\ThemeManager.h">
       <Filter>ChordcraftStudio\Source</Filter>
     </ClInclude>
