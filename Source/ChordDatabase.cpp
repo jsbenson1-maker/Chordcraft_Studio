@@ -63,9 +63,9 @@ const ChordDefinition* ChordDatabase::getChord (const juce::String& root, const 
     return getChordById (key);
 }
 
-const ChordDefinition* ChordDatabase::getChordById (const juce::String& id) const
+const ChordDefinition* ChordDatabase::getChordById (const std::string& id) const
 {
-    auto it = chordMap.find (id.toStdString());
+    auto it = chordMap.find (id);
     if (it != chordMap.end())
         return &(it->second);
     return nullptr;

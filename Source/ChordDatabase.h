@@ -28,7 +28,7 @@ public:
     const ChordDefinition* getChord (const juce::String& root, const juce::String& quality, int inversion) const;
     
     // Query a chord definition by explicit ID (e.g. "C_Maj_i0")
-    const ChordDefinition* getChordById (const juce::String& id) const;
+    const ChordDefinition* getChordById (const std::string& id) const;
 
     const juce::StringArray& getRoots() const { return roots; }
     const juce::StringArray& getQualities() const { return qualities; }

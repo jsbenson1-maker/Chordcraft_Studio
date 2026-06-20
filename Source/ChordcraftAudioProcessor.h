@@ -69,8 +69,7 @@ struct PlaybackInstruction
     
     // For progression block updates
     int blockIndex = 0;
-    int numNotes = 0;
-    int midiNotes[8] = { 0 };
+    char chordId[32] = { 0 }; // Fixed-size char array for O(1) database lookup without heap allocations
     int startTick = 0;
     int durationTicks = 0;
 };

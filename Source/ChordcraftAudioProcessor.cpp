@@ -95,8 +95,8 @@ private:
 ChordcraftAudioProcessor::ChordcraftAudioProcessor()
     : AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
-    // Initialize standard synthesiser voices (polyphony limit = 16)
-    for (int i = 0; i < 16; ++i)
+    // Initialize standard synthesiser voices (polyphony limit = 32 for dense jazz chords & overlapping tails)
+    for (int i = 0; i < 32; ++i)
         synth.addVoice (new SineWaveVoice());
         
     synth.addSound (new SineWaveSound());
@@ -205,47 +205,10 @@ void ChordcraftAudioProcessor::sendProgressionToAudioThread (const juce::Array<C
         inst.startTick = startTick;
         inst.durationTicks = cb.durationBeats * ticksPerQuarterNote;
         
-        inst.numNotes = juce::jmin (8, cb.midiNotes.size());
-        
-        if (inst.numNotes > 0)
-        {
-            for (int n = 0; n < inst.numNotes; ++n)
-                inst.midiNotes[n] = cb.midiNotes[n];
-        }
-        else
-        {
-            // Fallback resolver: lookup in ChordDatabase using root and quality
-            auto* def = ChordDatabase::getInstance().getChord (cb.root, cb.quality, cb.inversion);
-            if (def != nullptr)
-            {
-                int rootMidi = 60; // C4 Middle C default
-                if (cb.root == "Db") rootMidi = 61;
-                else if (cb.root == "D") rootMidi = 62;
-                else if (cb.root == "Eb") rootMidi = 63;
-                else if (cb.root == "E") rootMidi = 64;
-                else if (cb.root == "F") rootMidi = 65;
-                else if (cb.root == "Gb") rootMidi = 66;
-                else if (cb.root == "G") rootMidi = 67;
-                else if (cb.root == "Ab") rootMidi = 68;
-                else if (cb.root == "A") rootMidi = 69;
-                else if (cb.root == "Bb") rootMidi = 70;
-                else if (cb.root == "B") rootMidi = 71;
-                
-                inst.numNotes = juce::jmin (8, (int) def->intervals.size());
-                for (int n = 0; n < inst.numNotes; ++n)
-                {
-                    inst.midiNotes[n] = rootMidi + def->intervals[n] + def->rootMidiOffset;
-                }
-            }
-            else
-            {
-                // C Major triad default fallback
-                inst.numNotes = 3;
-                inst.midiNotes[0] = 60; // C
-                inst.midiNotes[1] = 64; // E
-                inst.midiNotes[2] = 67; // G
-            }
-        }
+        // Generate O(1) lookup key for database (e.g. C_Maj_i0)
+        juce::String id = cb.root + "_" + cb.quality + "_i" + juce::String (cb.inversion);
+        juce::zeromem (inst.chordId, sizeof (inst.chordId));
+        id.copyToUTF8 (inst.chordId, sizeof (inst.chordId) - 1);
         
         queueInstruction (inst);
         startTick += inst.durationTicks;
@@ -302,9 +265,40 @@ void ChordcraftAudioProcessor::processQueueInstructions()
                     auto& block = localProgression[inst.blockIndex];
                     block.startTick = inst.startTick;
                     block.durationTicks = inst.durationTicks;
-                    block.numNotes = inst.numNotes;
-                    for (int i = 0; i < inst.numNotes; ++i)
-                        block.midiNotes[i] = inst.midiNotes[i];
+                    
+                    // Allocation-free query to ChordDatabase using standard std::string key
+                    std::string keyId (inst.chordId);
+                    auto* def = ChordDatabase::getInstance().getChordById (keyId);
+                    if (def != nullptr)
+                    {
+                        // Convert root name to MIDI root pitch (C4 Middle C = 60)
+                        int rootMidi = 60;
+                        if (def->root == "Db") rootMidi = 61;
+                        else if (def->root == "D") rootMidi = 62;
+                        else if (def->root == "Eb") rootMidi = 63;
+                        else if (def->root == "E") rootMidi = 64;
+                        else if (def->root == "F") rootMidi = 65;
+                        else if (def->root == "Gb") rootMidi = 66;
+                        else if (def->root == "G") rootMidi = 67;
+                        else if (def->root == "Ab") rootMidi = 68;
+                        else if (def->root == "A") rootMidi = 69;
+                        else if (def->root == "Bb") rootMidi = 70;
+                        else if (def->root == "B") rootMidi = 71;
+                        
+                        block.numNotes = juce::jmin (8, (int) def->intervals.size());
+                        for (int n = 0; n < block.numNotes; ++n)
+                        {
+                            block.midiNotes[n] = rootMidi + def->intervals[n] + def->rootMidiOffset;
+                        }
+                    }
+                    else
+                    {
+                        // Default fallback: C Major triad
+                        block.numNotes = 3;
+                        block.midiNotes[0] = 60;
+                        block.midiNotes[1] = 64;
+                        block.midiNotes[2] = 67;
+                    }
                     block.isCurrentlyPlaying = false;
                     
                     if (inst.blockIndex >= numLocalProgressionBlocks)
@@ -315,7 +309,7 @@ void ChordcraftAudioProcessor::processQueueInstructions()
     }
 }
 
-void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& /*midiMessages*/)
+void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& midiMessages)
 {
     if (! isPlayingLocal || samplesPerTick <= 0.0)
         return;
@@ -333,6 +327,10 @@ void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& /
         // Trigger Note On
         if (block.startTick >= startTick && block.startTick < endTick)
         {
+            // Calculate sample-accurate offset within this audio block
+            int sampleOffset = static_cast<int> ((block.startTick - startTick) * samplesPerTick);
+            sampleOffset = juce::jlimit (0, numSamples - 1, sampleOffset);
+            
             // Turn off any currently playing block's notes first to prevent overlaps
             for (int prevIdx = 0; prevIdx < numLocalProgressionBlocks; ++prevIdx)
             {
@@ -340,15 +338,15 @@ void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& /
                 if (prevBlock.isCurrentlyPlaying)
                 {
                     for (int n = 0; n < prevBlock.numNotes; ++n)
-                        synth.noteOff (1, prevBlock.midiNotes[n], 0.0f, true);
+                        midiMessages.addEvent (juce::MidiMessage::noteOff (1, prevBlock.midiNotes[n]), sampleOffset);
                         
                     prevBlock.isCurrentlyPlaying = false;
                 }
             }
             
-            // Trigger new notes
+            // Trigger new notes at sampleOffset
             for (int n = 0; n < block.numNotes; ++n)
-                synth.noteOn (1, block.midiNotes[n], 0.75f);
+                midiMessages.addEvent (juce::MidiMessage::noteOn (1, block.midiNotes[n], 0.75f), sampleOffset);
                 
             block.isCurrentlyPlaying = true;
         }
@@ -357,8 +355,11 @@ void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& /
         int blockEndTick = block.startTick + block.durationTicks;
         if (block.isCurrentlyPlaying && blockEndTick >= startTick && blockEndTick < endTick)
         {
+            int sampleOffset = static_cast<int> ((blockEndTick - startTick) * samplesPerTick);
+            sampleOffset = juce::jlimit (0, numSamples - 1, sampleOffset);
+            
             for (int n = 0; n < block.numNotes; ++n)
-                synth.noteOff (1, block.midiNotes[n], 0.0f, true);
+                midiMessages.addEvent (juce::MidiMessage::noteOff (1, block.midiNotes[n]), sampleOffset);
                 
             block.isCurrentlyPlaying = false;
         }
@@ -383,7 +384,9 @@ void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& /
             for (int i = 0; i < numLocalProgressionBlocks; ++i)
                 localProgression[i].isCurrentlyPlaying = false;
                 
-            synth.allNotesOff (1, true);
+            // Turn off all notes at loop boundary
+            int loopOffset = juce::jlimit (0, numSamples - 1, static_cast<int> (totalDurationSamples - currentSamplePosition));
+            midiMessages.addEvent (juce::MidiMessage::allNotesOff (1), loopOffset);
         }
     }
 }
