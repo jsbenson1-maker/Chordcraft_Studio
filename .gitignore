@@ -1,0 +1,43 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userossc
+*.sln.docstates
+*.suo
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+
+# Xcode & macOS
+.DS_Store
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# VS Code
+.vscode/ipch/
+.vscode/msvc.source.properties
+
+# JUCE Builds intermediate files (keep project definitions, ignore compilation outputs)
+/Builds/*/x64/
+/Builds/*/x86/
+/Builds/*/ARM/
+/Builds/*/Debug/
+/Builds/*/Release/
+/Builds/*/AppxPackages/
+/Builds/*/Bundle/
+/Builds/*/Generated Files/
+/Builds/*/Intermediate/
+/Builds/*/ipch/
+/Builds/Android/app/build/
+/Builds/Android/.gradle/
+/Builds/Android/local.properties
+/Builds/Android/captures/
+/Builds/Android/*.iml
+/Builds/Android/.externalNativeBuild/
+/Builds/Android/app/src/main/assets/
