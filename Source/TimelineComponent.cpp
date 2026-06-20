@@ -128,13 +128,13 @@ void TimelineComponent::mouseDrag (const juce::MouseEvent& event)
     if (arrangement.isClipboardModeActive) {
         int currentIndex = getChordIndexAtPosition (event.getPosition());
         
+        // --- HAPTIC RATCHET TRIGGER ---
         if (currentIndex != -1 && currentIndex != lastHapticIndex)
         {
             lastHapticIndex = currentIndex;
             
-            #if JUCE_ANDROID
-                // TODO: Inject Android JNI Vibrator/HapticGenerator call here
-            #endif
+            // Fires the JNI CLOCK_TICK on Android, safely ignored on Windows
+            ThemeManager::triggerHapticRatchet(); 
         }
 
         updateDragSelection (currentIndex);
@@ -154,9 +154,9 @@ void TimelineComponent::mouseUp (const juce::MouseEvent& event)
         if (dragStartIndex != -1) {
             chords.getReference(dragStartIndex).isSelected = true;
             
-            #if JUCE_ANDROID
-                // TODO: Inject Android JNI Haptic Impact Light call here
-            #endif
+            // --- HAPTIC IMPACT TRIGGER ---
+            // Fires the JNI KEYBOARD_TAP on Android, safely ignored on Windows
+            ThemeManager::triggerHapticImpact(); 
         }
         arrangement.notifyChanges();
     }
