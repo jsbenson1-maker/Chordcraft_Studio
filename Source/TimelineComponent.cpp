@@ -6,6 +6,7 @@ TimelineComponent::TimelineComponent(ChordArrangement& sharedArrangement)
     : arrangement(sharedArrangement)
 {
     arrangement.addChangeListener(this);
+    startTimer (30);
 }
 
 TimelineComponent::~TimelineComponent()
@@ -21,11 +22,32 @@ void TimelineComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 }
 
 //==============================================================================
+juce::String TimelineComponent::getInversionText (int inversion, int octave)
+{
+    juce::String octStr;
+    if (octave == 0) octStr = "Low";
+    else if (octave == 2) octStr = "High";
+    else octStr = "Mid";
+
+    juce::String invStr;
+    if (inversion == 1) invStr = "first";
+    else if (inversion == 2) invStr = "second";
+    else invStr = "root";
+
+    return octStr + " " + invStr;
+}
+
+//==============================================================================
 void TimelineComponent::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff111827)); 
 
     auto& chords = arrangement.getChords();
+    bool isPlaying = arrangement.isPlaying();
+    int playheadTick = arrangement.getPlayheadTick();
+
+    int currentStartTick = 0;
+    const int ticksPerQuarterNote = 960;
 
     for (int i = 0; i < chords.size(); ++i)
     {
@@ -33,6 +55,10 @@ void TimelineComponent::paint (juce::Graphics& g)
         auto bounds = chord.bounds.toFloat();
         float cornerRadius = 6.0f; 
 
+        int blockDurationTicks = chord.durationBeats * ticksPerQuarterNote;
+        int blockEndTick = currentStartTick + blockDurationTicks;
+
+        // Base block colors
         if (chord.isSelected)
         {
             g.setColour (ThemeManager::getSystemAccentColor().withAlpha(0.2f)); 
@@ -48,20 +74,54 @@ void TimelineComponent::paint (juce::Graphics& g)
             g.drawRoundedRectangle (bounds, cornerRadius, 1.5f);
         }
 
+        // --- PLAYBACK WIPE OVERLAY ---
+        if (isPlaying && playheadTick >= currentStartTick && playheadTick < blockEndTick)
+        {
+            double progress = (double) (playheadTick - currentStartTick) / blockDurationTicks;
+            float progressF = (float) juce::jlimit (0.0, 1.0, progress);
+            
+            // Draw active border or glow
+            g.setColour (ThemeManager::getSystemAccentColor().withAlpha(0.5f));
+            g.drawRoundedRectangle (bounds, cornerRadius, 2.5f);
+            
+            // Draw progress wipe
+            auto wipeBounds = bounds;
+            wipeBounds.setWidth (bounds.getWidth() * progressF);
+            
+            g.saveState();
+            juce::Path clipPath;
+            clipPath.addRoundedRectangle (bounds, cornerRadius);
+            g.reduceClipRegion (clipPath);
+            
+            g.setColour (ThemeManager::getSystemAccentColor().withAlpha(0.25f));
+            g.fillRect (wipeBounds);
+            g.restoreState();
+        }
+
         // --- STACKED TEXT LAYOUT ---
         juce::Rectangle<float> contentBounds = bounds.reduced(4.0f);
+        float totalHeight = contentBounds.getHeight();
         
-        // Top 55% for Chord Name
-        juce::Rectangle<float> textBounds = contentBounds.removeFromTop(contentBounds.getHeight() * 0.55f);
-        g.setColour (chord.isSelected ? juce::Colours::white : juce::Colour(0xffd1d5db)); 
-        g.setFont (juce::FontOptions (18.0f, juce::Font::bold));
-        g.drawText (chord.name, textBounds, juce::Justification::centredBottom, false);
+        juce::Rectangle<float> nameBounds = contentBounds.removeFromTop (totalHeight * 0.45f);
+        juce::Rectangle<float> sigBounds = contentBounds.removeFromTop (totalHeight * 0.30f);
+        juce::Rectangle<float> invBounds = contentBounds;
 
-        // Bottom remaining space for Time Signature
-        juce::Rectangle<float> measureBounds = contentBounds;
-        g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor() : juce::Colour(0xff6b7280)); 
-        g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-        g.drawText (chord.durationText, measureBounds, juce::Justification::centredTop, false);
+        // Chord Name
+        g.setColour (chord.isSelected ? juce::Colours::white : juce::Colour(0xffd1d5db)); 
+        g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
+        g.drawText (chord.name, nameBounds, juce::Justification::centredBottom, false);
+
+        // Time Signature
+        g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor() : juce::Colour(0xff9ca3af)); 
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.drawText (chord.durationText, sigBounds, juce::Justification::centred, false);
+
+        // Inversion Text
+        g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor().withAlpha(0.8f) : juce::Colour(0xff6b7280)); 
+        g.setFont (juce::FontOptions (9.0f));
+        g.drawText (getInversionText (chord.inversion, chord.octave), invBounds, juce::Justification::centredTop, false);
+
+        currentStartTick = blockEndTick;
     }
 }
 
@@ -107,25 +167,46 @@ void TimelineComponent::mouseDown (const juce::MouseEvent& event)
             return;
         }
         
-        startTimer(400); 
+        mouseDownTime = juce::Time::getMillisecondCounter();
+    }
+    else
+    {
+        dragStartIndex = -1;
+        if (arrangement.isClipboardModeActive)
+        {
+            arrangement.isClipboardModeActive = false;
+            auto& chords = arrangement.getChords();
+            for (auto& c : chords) c.isSelected = false;
+            arrangement.notifyChanges();
+        }
     }
 }
 
 void TimelineComponent::timerCallback()
 {
-    stopTimer();
-    arrangement.isClipboardModeActive = true;
-    auto& chords = arrangement.getChords();
-    chords.getReference(dragStartIndex).isSelected = true;
-    arrangement.notifyChanges();
+    if (arrangement.isPlaying())
+    {
+        repaint();
+    }
+
+    if (dragStartIndex != -1 && ! arrangement.isClipboardModeActive)
+    {
+        if (juce::ModifierKeys::getCurrentModifiers().isLeftButtonDown())
+        {
+            auto now = juce::Time::getMillisecondCounter();
+            if (now - mouseDownTime >= 400)
+            {
+                arrangement.isClipboardModeActive = true;
+                auto& chords = arrangement.getChords();
+                chords.getReference(dragStartIndex).isSelected = true;
+                arrangement.notifyChanges();
+            }
+        }
+    }
 }
 
 void TimelineComponent::mouseDrag (const juce::MouseEvent& event)
 {
-    if (event.getDistanceFromDragStart() > 10 && isTimerRunning()) {
-        stopTimer();
-    }
-
     if (arrangement.isClipboardModeActive) {
         int currentIndex = getChordIndexAtPosition (event.getPosition());
         
@@ -133,8 +214,6 @@ void TimelineComponent::mouseDrag (const juce::MouseEvent& event)
         if (currentIndex != -1 && currentIndex != lastHapticIndex)
         {
             lastHapticIndex = currentIndex;
-            
-            // Fires the JNI CLOCK_TICK on Android, safely ignored on Windows
             ThemeManager::triggerHapticRatchet(); 
         }
 
@@ -144,24 +223,20 @@ void TimelineComponent::mouseDrag (const juce::MouseEvent& event)
 
 void TimelineComponent::mouseUp (const juce::MouseEvent& event)
 {
-    if (isTimerRunning())
+    juce::ignoreUnused (event);
+    if (! arrangement.isClipboardModeActive)
     {
-        stopTimer();
-        arrangement.isClipboardModeActive = false; 
-        
         auto& chords = arrangement.getChords();
         for (auto& c : chords) c.isSelected = false;
         
         if (dragStartIndex != -1) {
             chords.getReference(dragStartIndex).isSelected = true;
-            
-            // --- HAPTIC IMPACT TRIGGER ---
-            // Fires the JNI KEYBOARD_TAP on Android, safely ignored on Windows
             ThemeManager::triggerHapticImpact(); 
         }
         arrangement.notifyChanges();
     }
     
+    dragStartIndex = -1;
     lastHapticIndex = -1; 
 }
 

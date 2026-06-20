@@ -28,8 +28,10 @@ private:
     juce::String currentChordName = "C Maj";
     float totalTimelineBeats = 16.0f;
     
-    // Updated: Now applies to the entire chord entry grid
-    int gridScrollOffset = 0;
+    int rootsScrollOffset = 0;
+    int qualitiesScrollOffset = 0;
+    int durationsScrollOffset = 0;
+    bool isInversionDrawerActive = false;
 
     // UI layout bounds for the bottom transport/control bar
     juce::Rectangle<int> playButtonBounds;

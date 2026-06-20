@@ -72,6 +72,7 @@ struct PlaybackInstruction
     char chordId[32] = { 0 }; // Fixed-size char array for O(1) database lookup without heap allocations
     int startTick = 0;
     int durationTicks = 0;
+    int octave = 1;
 };
 
 class ChordcraftAudioProcessor : public juce::AudioProcessor

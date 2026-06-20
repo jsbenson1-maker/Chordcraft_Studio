@@ -118,6 +118,7 @@ void ChordcraftAudioProcessor::sendProgressionToAudioThread (const juce::Array<C
         inst.blockIndex = i;
         inst.startTick = startTick;
         inst.durationTicks = cb.durationBeats * ticksPerQuarterNote;
+        inst.octave = cb.octave;
         
         // Generate O(1) lookup key for database (e.g. C_Maj_i0)
         juce::String id = cb.root + "_" + cb.quality + "_i" + juce::String (cb.inversion);
@@ -185,19 +186,22 @@ void ChordcraftAudioProcessor::processQueueInstructions()
                     auto* def = ChordDatabase::getInstance().getChordById (keyId);
                     if (def != nullptr)
                     {
-                        // Convert root name to MIDI root pitch (C4 Middle C = 60)
+                        // Convert root name to MIDI root pitch (Low = 48, Mid = 60, High = 72)
                         int rootMidi = 60;
-                        if (def->root == "Db") rootMidi = 61;
-                        else if (def->root == "D") rootMidi = 62;
-                        else if (def->root == "Eb") rootMidi = 63;
-                        else if (def->root == "E") rootMidi = 64;
-                        else if (def->root == "F") rootMidi = 65;
-                        else if (def->root == "Gb") rootMidi = 66;
-                        else if (def->root == "G") rootMidi = 67;
-                        else if (def->root == "Ab") rootMidi = 68;
-                        else if (def->root == "A") rootMidi = 69;
-                        else if (def->root == "Bb") rootMidi = 70;
-                        else if (def->root == "B") rootMidi = 71;
+                        if (inst.octave == 0) rootMidi = 48;
+                        else if (inst.octave == 2) rootMidi = 72;
+
+                        if (def->root == "Db") rootMidi += 1;
+                        else if (def->root == "D") rootMidi += 2;
+                        else if (def->root == "Eb") rootMidi += 3;
+                        else if (def->root == "E") rootMidi += 4;
+                        else if (def->root == "F") rootMidi += 5;
+                        else if (def->root == "Gb") rootMidi += 6;
+                        else if (def->root == "G") rootMidi += 7;
+                        else if (def->root == "Ab") rootMidi += 8;
+                        else if (def->root == "A") rootMidi += 9;
+                        else if (def->root == "Bb") rootMidi += 10;
+                        else if (def->root == "B") rootMidi += 11;
                         
                         block.numNotes = juce::jmin (8, (int) def->intervals.size());
                         for (int n = 0; n < block.numNotes; ++n)
@@ -208,10 +212,13 @@ void ChordcraftAudioProcessor::processQueueInstructions()
                     else
                     {
                         // Default fallback: C Major triad
+                        int rootMidi = 60;
+                        if (inst.octave == 0) rootMidi = 48;
+                        else if (inst.octave == 2) rootMidi = 72;
                         block.numNotes = 3;
-                        block.midiNotes[0] = 60;
-                        block.midiNotes[1] = 64;
-                        block.midiNotes[2] = 67;
+                        block.midiNotes[0] = rootMidi;
+                        block.midiNotes[1] = rootMidi + 4;
+                        block.midiNotes[2] = rootMidi + 7;
                     }
                     block.isCurrentlyPlaying = false;
                     

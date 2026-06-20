@@ -29,6 +29,9 @@ private:
     
     int lastHapticIndex = -1;
 
+    juce::uint32 mouseDownTime = 0;
+    juce::String getInversionText (int inversion, int octave);
+
     int getChordIndexAtPosition (juce::Point<int> position);
     void updateDragSelection (int currentIndex);
 

@@ -14,6 +14,7 @@ struct ChordBlock
     bool isSelected = false;
     juce::Rectangle<int> bounds; 
     juce::Array<int> midiNotes; // Resolved MIDI notes for audio playback
+    int octave = 1; // 0 = Low, 1 = Mid, 2 = High (default 1)
 };
 
 class ChordArrangement : public juce::ChangeBroadcaster
@@ -22,10 +23,10 @@ public:
     ChordArrangement()
     {
         // Initial placeholder progression
-        chords.add ({ "C Maj",  "C", "Maj",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} }); 
-        chords.add ({ "G Min",  "G", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
-        chords.add ({ "A Min",  "A", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
-        chords.add ({ "F Maj7", "F", "Maj7", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
+        chords.add ({ "C Maj",  "C", "Maj",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 }); 
+        chords.add ({ "G Min",  "G", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        chords.add ({ "A Min",  "A", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        chords.add ({ "F Maj7", "F", "Maj7", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
     }
 
     // Bind the audio processor to enable UI control of the audio thread
@@ -37,6 +38,13 @@ public:
             sendProgressionToAudioThread();
             setTempo (bpm);
         }
+    }
+
+    int getPlayheadTick() const
+    {
+        if (audioProcessor != nullptr)
+            return audioProcessor->getPlayheadTick();
+        return 0;
     }
 
     void auditionNoteOn (int midiNote, int velocity)

@@ -46,17 +46,20 @@ inline void performMidiExport (const juce::Array<ChordBlock>& chords, float bpm)
         if (def != nullptr)
         {
             int rootMidi = 60;
-            if (def->root == "Db") rootMidi = 61;
-            else if (def->root == "D") rootMidi = 62;
-            else if (def->root == "Eb") rootMidi = 63;
-            else if (def->root == "E") rootMidi = 64;
-            else if (def->root == "F") rootMidi = 65;
-            else if (def->root == "Gb") rootMidi = 66;
-            else if (def->root == "G") rootMidi = 67;
-            else if (def->root == "Ab") rootMidi = 68;
-            else if (def->root == "A") rootMidi = 69;
-            else if (def->root == "Bb") rootMidi = 70;
-            else if (def->root == "B") rootMidi = 71;
+            if (cb.octave == 0) rootMidi = 48;
+            else if (cb.octave == 2) rootMidi = 72;
+
+            if (def->root == "Db") rootMidi += 1;
+            else if (def->root == "D") rootMidi += 2;
+            else if (def->root == "Eb") rootMidi += 3;
+            else if (def->root == "E") rootMidi += 4;
+            else if (def->root == "F") rootMidi += 5;
+            else if (def->root == "Gb") rootMidi += 6;
+            else if (def->root == "G") rootMidi += 7;
+            else if (def->root == "Ab") rootMidi += 8;
+            else if (def->root == "A") rootMidi += 9;
+            else if (def->root == "Bb") rootMidi += 10;
+            else if (def->root == "B") rootMidi += 11;
             
             int numNotes = juce::jmin (8, (int) def->intervals.size());
             for (int n = 0; n < numNotes; ++n)
@@ -65,9 +68,12 @@ inline void performMidiExport (const juce::Array<ChordBlock>& chords, float bpm)
         else
         {
             // Default fallback
-            notes.add (60);
-            notes.add (64);
-            notes.add (67);
+            int rootMidi = 60;
+            if (cb.octave == 0) rootMidi = 48;
+            else if (cb.octave == 2) rootMidi = 72;
+            notes.add (rootMidi);
+            notes.add (rootMidi + 4);
+            notes.add (rootMidi + 7);
         }
         
         int startTick = currentStartTick;
@@ -183,17 +189,20 @@ public:
             if (def != nullptr)
             {
                 int rootMidi = 60;
-                if (def->root == "Db") rootMidi = 61;
-                else if (def->root == "D") rootMidi = 62;
-                else if (def->root == "Eb") rootMidi = 63;
-                else if (def->root == "E") rootMidi = 64;
-                else if (def->root == "F") rootMidi = 65;
-                else if (def->root == "Gb") rootMidi = 66;
-                else if (def->root == "G") rootMidi = 67;
-                else if (def->root == "Ab") rootMidi = 68;
-                else if (def->root == "A") rootMidi = 69;
-                else if (def->root == "Bb") rootMidi = 70;
-                else if (def->root == "B") rootMidi = 71;
+                if (cb.octave == 0) rootMidi = 48;
+                else if (cb.octave == 2) rootMidi = 72;
+
+                if (def->root == "Db") rootMidi += 1;
+                else if (def->root == "D") rootMidi += 2;
+                else if (def->root == "Eb") rootMidi += 3;
+                else if (def->root == "E") rootMidi += 4;
+                else if (def->root == "F") rootMidi += 5;
+                else if (def->root == "Gb") rootMidi += 6;
+                else if (def->root == "G") rootMidi += 7;
+                else if (def->root == "Ab") rootMidi += 8;
+                else if (def->root == "A") rootMidi += 9;
+                else if (def->root == "Bb") rootMidi += 10;
+                else if (def->root == "B") rootMidi += 11;
                 
                 int numNotes = juce::jmin (8, (int) def->intervals.size());
                 for (int n = 0; n < numNotes; ++n)
@@ -201,9 +210,12 @@ public:
             }
             else
             {
-                notes.add (60);
-                notes.add (64);
-                notes.add (67);
+                int rootMidi = 60;
+                if (cb.octave == 0) rootMidi = 48;
+                else if (cb.octave == 2) rootMidi = 72;
+                notes.add (rootMidi);
+                notes.add (rootMidi + 4);
+                notes.add (rootMidi + 7);
             }
             
             int startSample = static_cast<int> (currentStartTick * samplesPerTick);
