@@ -3690,6 +3690,15 @@
     <ClInclude Include="..\..\Source\ChordcraftAudioProcessor.h">
       <Filter>ChordcraftStudio\Source</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Source\SynthVoices.h">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\ExportEngine.h">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\AiCoreManager.h">
+      <Filter>ChordcraftStudio\Source</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Source\ThemeManager.h">
       <Filter>ChordcraftStudio\Source</Filter>
     </ClInclude>

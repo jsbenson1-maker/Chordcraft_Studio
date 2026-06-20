@@ -11,7 +11,11 @@
       <FILE id="dbC001" name="ChordDatabase.cpp" compile="1" resource="0" file="Source/ChordDatabase.cpp"/>
       <FILE id="apH001" name="ChordcraftAudioProcessor.h" compile="0" resource="0" file="Source/ChordcraftAudioProcessor.h"/>
       <FILE id="apC001" name="ChordcraftAudioProcessor.cpp" compile="1" resource="0" file="Source/ChordcraftAudioProcessor.cpp"/>
+      <FILE id="svH001" name="SynthVoices.h" compile="0" resource="0" file="Source/SynthVoices.h"/>
+      <FILE id="eeH001" name="ExportEngine.h" compile="0" resource="0" file="Source/ExportEngine.h"/>
+      <FILE id="acH001" name="AiCoreManager.h" compile="0" resource="0" file="Source/AiCoreManager.h"/>
       <FILE id="leExlC" name="ThemeManager.h" compile="0" resource="0" file="Source/ThemeManager.h"/>
+
       <FILE id="ChL57X" name="ChordArrangement.h" compile="0" resource="0"
             file="Source/ChordArrangement.h"/>
       <FILE id="Qwup7O" name="InspectorComponent.cpp" compile="1" resource="0"

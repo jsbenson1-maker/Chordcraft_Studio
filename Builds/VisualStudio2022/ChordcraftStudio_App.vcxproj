@@ -2946,6 +2946,9 @@
   <ItemGroup>
     <ClInclude Include="..\..\Source\ChordDatabase.h"/>
     <ClInclude Include="..\..\Source\ChordcraftAudioProcessor.h"/>
+    <ClInclude Include="..\..\Source\SynthVoices.h"/>
+    <ClInclude Include="..\..\Source\ExportEngine.h"/>
+    <ClInclude Include="..\..\Source\AiCoreManager.h"/>
     <ClInclude Include="..\..\Source\ThemeManager.h"/>
     <ClInclude Include="..\..\Source\ChordArrangement.h"/>
     <ClInclude Include="..\..\Source\InspectorComponent.h"/>

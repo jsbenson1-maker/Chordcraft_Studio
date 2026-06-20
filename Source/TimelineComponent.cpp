@@ -16,6 +16,7 @@ TimelineComponent::~TimelineComponent()
 
 void TimelineComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 {
+    resized();
     repaint();
 }
 
@@ -60,7 +61,7 @@ void TimelineComponent::paint (juce::Graphics& g)
         juce::Rectangle<float> measureBounds = contentBounds;
         g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor() : juce::Colour(0xff6b7280)); 
         g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-        g.drawText ("4/4", measureBounds, juce::Justification::centredTop, false);
+        g.drawText (chord.durationText, measureBounds, juce::Justification::centredTop, false);
     }
 }
 

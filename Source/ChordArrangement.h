@@ -9,6 +9,7 @@ struct ChordBlock
     juce::String quality;
     int inversion = 0;
     int durationBeats = 4; 
+    juce::String durationText = "4/4";
     juce::Colour colour;
     bool isSelected = false;
     juce::Rectangle<int> bounds; 
@@ -21,10 +22,10 @@ public:
     ChordArrangement()
     {
         // Initial placeholder progression
-        chords.add ({ "C Maj",  "C", "Maj",  0, 4, juce::Colour (0xff0f172a), false, {}, {} }); 
-        chords.add ({ "G Min",  "G", "Min",  0, 4, juce::Colour (0xff0f172a), false, {}, {} });
-        chords.add ({ "A Min",  "A", "Min",  0, 4, juce::Colour (0xff0f172a), false, {}, {} });
-        chords.add ({ "F Maj7", "F", "Maj7", 0, 4, juce::Colour (0xff0f172a), false, {}, {} });
+        chords.add ({ "C Maj",  "C", "Maj",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} }); 
+        chords.add ({ "G Min",  "G", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
+        chords.add ({ "A Min",  "A", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
+        chords.add ({ "F Maj7", "F", "Maj7", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {} });
     }
 
     // Bind the audio processor to enable UI control of the audio thread
@@ -32,7 +33,10 @@ public:
     {
         audioProcessor = processor;
         if (audioProcessor != nullptr)
+        {
             sendProgressionToAudioThread();
+            setTempo (bpm);
+        }
     }
 
     void auditionNoteOn (int midiNote, int velocity)
@@ -59,11 +63,22 @@ public:
             audioProcessor->setPlayState (play);
     }
 
-    void setTempo (float bpm)
+    bool isPlaying() const
     {
         if (audioProcessor != nullptr)
-            audioProcessor->setTempo (bpm);
+            return audioProcessor->isEnginePlaying();
+        return false;
     }
+
+    void setTempo (float newBpm)
+    {
+        bpm = newBpm;
+        if (audioProcessor != nullptr)
+            audioProcessor->setTempo (newBpm);
+        notifyChanges();
+    }
+
+    float getBpm() const { return bpm; }
 
     void sendProgressionToAudioThread()
     {
@@ -73,6 +88,8 @@ public:
 
     // NEW: Global state so the Inspector knows exactly when to show the Clipboard Drawer
     bool isClipboardModeActive = false; 
+
+    juce::String activeKey = "C Maj";
 
     juce::Array<ChordBlock>& getChords() { return chords; }
 
@@ -84,5 +101,6 @@ public:
 private:
     ChordcraftAudioProcessor* audioProcessor = nullptr;
     juce::Array<ChordBlock> chords;
+    float bpm = 120.0f;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordArrangement)
-};
+};
