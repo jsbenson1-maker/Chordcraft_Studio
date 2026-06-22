@@ -26,10 +26,10 @@ jobs:
         run: |
           ../juce-8.0.13-windows/JUCE/Projucer.app/Contents/MacOS/Projucer --resave ChordcraftStudio.jucer
 
-      - name: Build Xcode Project
+     - name: Build Xcode Project
         run: |
           xcodebuild -project Builds/iOS/ChordcraftStudio.xcodeproj \
-                     -scheme "ChordcraftStudio - iOS" \
+                     -scheme "ChordcraftStudio - App" \
                      -configuration Release \
                      -sdk iphoneos \
                      CODE_SIGNING_ALLOWED=NO \
