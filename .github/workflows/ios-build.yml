@@ -17,7 +17,7 @@ jobs:
 
       - name: Install JUCE & Projucer
         run: |
-          curl -L -o juce.zip https://github.com/juce-framework/JUCE/releases/download/8.0.13/juce-8.0.13-mac.zip
+          curl -L -o juce.zip https://github.com/juce-framework/JUCE/releases/download/8.0.13/juce-8.0.13-osx.zip
           unzip -q juce.zip -d ..
           mkdir -p ../juce-8.0.13-windows
           mv ../JUCE ../juce-8.0.13-windows/JUCE
