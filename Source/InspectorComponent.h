@@ -22,6 +22,9 @@ public:
     void mouseUp (const juce::MouseEvent& event) override;
     void mouseWheelMove (const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
 
+    std::function<void()> onMixerButtonToggled;
+    std::function<void()> onMenuButtonToggled;
+
 private:
     ChordArrangement& arrangement;
 
@@ -31,11 +34,20 @@ private:
     int rootsScrollOffset = 0;
     int qualitiesScrollOffset = 0;
     int durationsScrollOffset = 0;
+    int rootsScrollOffsetAtDragStart = 0;
+    int qualitiesScrollOffsetAtDragStart = 0;
+    int durationsScrollOffsetAtDragStart = 0;
+    bool isDraggingRoots = false;
+    bool isDraggingQualities = false;
+    bool isDraggingDurations = false;
     bool isInversionDrawerActive = false;
+
+    void constrainScrollOffsets();
 
     // UI layout bounds for the bottom transport/control bar
     juce::Rectangle<int> playButtonBounds;
-    juce::Rectangle<int> exportBounds;
+    juce::Rectangle<int> menuBounds;
+    juce::Rectangle<int> mixerBounds;
     juce::Rectangle<int> bpmBounds;
 
     // UI layout bounds for the top menu bar
@@ -44,6 +56,7 @@ private:
     juce::Rectangle<int> invButtonBounds;
     juce::Rectangle<int> insertButtonBounds;
     juce::Rectangle<int> removeButtonBounds;
+    juce::Rectangle<int> passingChordButtonBounds;
 
     // Accidentals buttons bounds
     juce::Rectangle<int> flatButtonBounds;

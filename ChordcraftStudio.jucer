@@ -1,28 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="sIQKec" name="ChordcraftStudio" projectType="guiapp" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" icon="iconPng">
   <MAINGROUP id="p5BntU" name="ChordcraftStudio">
     <GROUP id="{4DFB4480-8842-33CF-76D7-9C2CF086D614}" name="resources">
+      <FILE id="iconPng" name="CCS.png" compile="0" resource="1" file="Resources/CCS.png"/>
+      <FILE id="lgCcJ2" name="patterns_master.json" compile="0" resource="1"
+            file="Resources/patterns_master.json"/>
       <FILE id="tUcXNe" name="chords.json" compile="0" resource="1" file="Resources/chords.json"/>
+      <FILE id="gmSf2" name="general_midi.sf2" compile="0" resource="1" file="Resources/general_midi.sf2"/>
     </GROUP>
     <GROUP id="{86700018-E65D-50AE-9F3E-72C94B4664F4}" name="Source">
+      <FILE id="pdH001" name="PatternDatabase.h" compile="0" resource="0"
+            file="Source/PatternDatabase.h"/>
+      <FILE id="pdC001" name="PatternDatabase.cpp" compile="1" resource="0"
+            file="Source/PatternDatabase.cpp"/>
       <FILE id="dbH001" name="ChordDatabase.h" compile="0" resource="0" file="Source/ChordDatabase.h"/>
-      <FILE id="dbC001" name="ChordDatabase.cpp" compile="1" resource="0" file="Source/ChordDatabase.cpp"/>
-      <FILE id="apH001" name="ChordcraftAudioProcessor.h" compile="0" resource="0" file="Source/ChordcraftAudioProcessor.h"/>
-      <FILE id="apC001" name="ChordcraftAudioProcessor.cpp" compile="1" resource="0" file="Source/ChordcraftAudioProcessor.cpp"/>
+      <FILE id="dbC001" name="ChordDatabase.cpp" compile="1" resource="0"
+            file="Source/ChordDatabase.cpp"/>
+      <FILE id="apH001" name="ChordcraftAudioProcessor.h" compile="0" resource="0"
+            file="Source/ChordcraftAudioProcessor.h"/>
+      <FILE id="apC001" name="ChordcraftAudioProcessor.cpp" compile="1" resource="0"
+            file="Source/ChordcraftAudioProcessor.cpp"/>
       <FILE id="svH001" name="SynthVoices.h" compile="0" resource="0" file="Source/SynthVoices.h"/>
       <FILE id="eeH001" name="ExportEngine.h" compile="0" resource="0" file="Source/ExportEngine.h"/>
       <FILE id="acH001" name="AiCoreManager.h" compile="0" resource="0" file="Source/AiCoreManager.h"/>
       <FILE id="leExlC" name="ThemeManager.h" compile="0" resource="0" file="Source/ThemeManager.h"/>
-
       <FILE id="ChL57X" name="ChordArrangement.h" compile="0" resource="0"
             file="Source/ChordArrangement.h"/>
       <FILE id="Qwup7O" name="InspectorComponent.cpp" compile="1" resource="0"
             file="Source/InspectorComponent.cpp"/>
       <FILE id="EEWtSw" name="InspectorComponent.h" compile="0" resource="0"
             file="Source/InspectorComponent.h"/>
+      <FILE id="gmH001" name="GlobalMenuComponent.h" compile="0" resource="0"
+            file="Source/GlobalMenuComponent.h"/>
+      <FILE id="gmC001" name="GlobalMenuComponent.cpp" compile="1" resource="0"
+            file="Source/GlobalMenuComponent.cpp"/>
       <FILE id="seT2ns" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
+      <FILE id="tmH001" name="TrackMixerComponent.h" compile="0" resource="0"
+            file="Source/TrackMixerComponent.h"/>
+      <FILE id="tmC001" name="TrackMixerComponent.cpp" compile="1" resource="0"
+            file="Source/TrackMixerComponent.cpp"/>
       <FILE id="ifgLyf" name="TimelineComponent.cpp" compile="1" resource="0"
             file="Source/TimelineComponent.cpp"/>
       <FILE id="NyiRa6" name="TimelineComponent.h" compile="0" resource="0"
@@ -50,68 +68,89 @@
   </MODULES>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_USE_WINRT_MIDI="1"/>
   <EXPORTFORMATS>
-    <VS2022 targetFolder="Builds/VisualStudio2022">
+    <VS2022 targetFolder="Builds/VisualStudio2022" bigIcon="iconPng" smallIcon="iconPng">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="ChordcraftStudio"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="ChordcraftStudio"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_audio_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors_headless" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_animation" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>
       </MODULEPATHS>
     </VS2022>
-    <VS2026 targetFolder="Builds/VisualStudio2026">
+    <VS2026 targetFolder="Builds/VisualStudio2026" bigIcon="iconPng" smallIcon="iconPng">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug"/>
         <CONFIGURATION isDebug="0" name="Release"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_audio_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors_headless" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_animation" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>
       </MODULEPATHS>
     </VS2026>
-    <ANDROIDSTUDIO targetFolder="Builds/Android">
+    <ANDROIDSTUDIO targetFolder="Builds/Android" bigIcon="iconPng" smallIcon="iconPng">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug"/>
         <CONFIGURATION isDebug="0" name="Release"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_animation" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors_headless" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="../../../../../Downloads/juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../juce-8.0.13-windows/JUCE/modules"/>
       </MODULEPATHS>
     </ANDROIDSTUDIO>
+    <XCODE_IPHONE targetFolder="Builds/iOS" bigIcon="iconPng" smallIcon="iconPng">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_formats" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_processors_headless" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_utils" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_core" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_data_structures" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_events" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_graphics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_basics" path="../juce-8.0.13-windows/JUCE/modules"/>
+        <MODULEPATH id="juce_gui_extra" path="../juce-8.0.13-windows/JUCE/modules"/>
+      </MODULEPATHS>
+    </XCODE_IPHONE>
   </EXPORTFORMATS>
 </JUCERPROJECT>

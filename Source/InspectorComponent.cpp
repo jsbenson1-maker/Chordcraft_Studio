@@ -182,33 +182,48 @@ namespace
 
     void trySetBassNote (ChordBlock* selectedChord, const juce::String& targetBass)
     {
+        if (selectedChord == nullptr) return;
+        
+        int targetInv = -1;
         for (int inv = 0; inv < 4; ++inv)
         {
             if (getChordBassNoteName (selectedChord->root, selectedChord->quality, inv) == targetBass)
             {
-                selectedChord->inversion = inv;
-                auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, inv);
-                if (def != nullptr)
-                    selectedChord->name = def->name;
-                else
-                    selectedChord->name = selectedChord->root + " " + selectedChord->quality;
+                targetInv = inv;
                 break;
             }
         }
+        
+        if (targetInv != -1)
+        {
+            selectedChord->inversion = targetInv;
+            selectedChord->customBassNote = "";
+            auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, targetInv);
+            if (def != nullptr)
+                selectedChord->name = def->name;
+            else
+                selectedChord->name = selectedChord->root + " " + selectedChord->quality;
+        }
+        else
+        {
+            selectedChord->customBassNote = targetBass;
+            selectedChord->inversion = 0;
+            selectedChord->name = selectedChord->root + " " + selectedChord->quality + "/" + targetBass;
+        }
     }
 
-    juce::Colour getChordTheoryColour (const juce::String& activeKey, const juce::String& root, const juce::String& quality, juce::Colour fallbackColour = juce::Colour (0xffef4444))
+    juce::Array<int> getScalePitchClasses (const juce::String& activeKey)
     {
         juce::String keyRoot = "C";
-        bool isMajorKey = true;
+        juce::String keyMode = "Maj";
         
         juce::StringArray keyTokens;
         keyTokens.addTokens (activeKey, " ", "");
         if (keyTokens.size() > 0)
             keyRoot = keyTokens[0];
-        if (keyTokens.size() > 1 && keyTokens[1].equalsIgnoreCase ("Min"))
-            isMajorKey = false;
-
+        if (keyTokens.size() > 1)
+            keyMode = keyTokens[1];
+            
         auto getPitchClass = [](const juce::String& r) -> int {
             if (r == "C") return 0;
             if (r == "Db" || r == "C#") return 1;
@@ -224,112 +239,159 @@ namespace
             if (r == "B") return 11;
             return 0;
         };
-
-        int keyPitch = getPitchClass (keyRoot);
-        int rootPitch = getPitchClass (root);
-        int diff = (rootPitch - keyPitch + 12) % 12;
-
-        if (isMajorKey)
-        {
-            if (diff == 0) // I
-            {
-                if (quality == "Maj" || quality == "Maj7" || quality == "6" || quality == "Maj9" || quality == "Maj11" || quality == "Maj13" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 2) // ii
-            {
-                if (quality == "Min" || quality == "Min7" || quality == "Min9" || quality == "Min11" || quality == "Min13" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 4) // iii
-            {
-                if (quality == "Min" || quality == "Min7" || quality == "Min11" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 5) // IV
-            {
-                if (quality == "Maj" || quality == "Maj7" || quality == "6" || quality == "Maj9" || quality == "Maj11" || quality == "Maj13" || quality == "Sus2" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 7) // V
-            {
-                if (quality == "Maj" || quality == "7" || quality == "9" || quality == "11" || quality == "13" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 9) // vi
-            {
-                if (quality == "Min" || quality == "Min7" || quality == "Min9" || quality == "Min11" || quality == "Min13" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 11) // vii°
-            {
-                if (quality == "Dim" || quality == "m7b5" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-
-            // Modal Mixtures (Yellow)
-            if (diff == 0 && (quality == "Min" || quality == "Min7" || quality == "Min9")) return juce::Colour (0xfff59e0b);
-            if (diff == 2 && (quality == "Maj" || quality == "7" || quality == "9" || quality == "13")) return juce::Colour (0xfff59e0b);
-            if (diff == 4 && (quality == "Maj" || quality == "7" || quality == "9")) return juce::Colour (0xfff59e0b);
-            if (diff == 9 && (quality == "Maj" || quality == "7")) return juce::Colour (0xfff59e0b);
-            if (diff == 11 && (quality == "Maj" || quality == "7")) return juce::Colour (0xfff59e0b);
-            if (diff == 0 && quality == "7") return juce::Colour (0xfff59e0b);
-
-            if (diff == 3 && (quality == "Maj" || quality == "Maj7" || quality == "6")) return juce::Colour (0xfff59e0b);
-            if (diff == 5 && (quality == "Min" || quality == "Min7" || quality == "Min9")) return juce::Colour (0xfff59e0b);
-            if (diff == 7 && (quality == "Min" || quality == "Min7")) return juce::Colour (0xfff59e0b);
-            if (diff == 8 && (quality == "Maj" || quality == "Maj7" || quality == "6")) return juce::Colour (0xfff59e0b);
-            if (diff == 10 && (quality == "Maj" || quality == "Maj7" || quality == "6" || quality == "7")) return juce::Colour (0xfff59e0b);
-
-            if (diff == 1 && (quality == "7" || quality == "9" || quality == "13")) return juce::Colour (0xfff59e0b);
-        }
+        
+        int rootPitch = getPitchClass (keyRoot);
+        juce::Array<int> intervals;
+        
+        if (keyMode.equalsIgnoreCase ("Maj") || keyMode.equalsIgnoreCase ("Ionian"))
+            intervals = { 0, 2, 4, 5, 7, 9, 11 };
+        else if (keyMode.equalsIgnoreCase ("Min") || keyMode.equalsIgnoreCase ("Aeolian"))
+            intervals = { 0, 2, 3, 5, 7, 8, 10 };
+        else if (keyMode.equalsIgnoreCase ("Dorian"))
+            intervals = { 0, 2, 3, 5, 7, 9, 10 };
+        else if (keyMode.equalsIgnoreCase ("Phrygian"))
+            intervals = { 0, 1, 3, 5, 7, 8, 10 };
+        else if (keyMode.equalsIgnoreCase ("Lydian"))
+            intervals = { 0, 2, 4, 6, 7, 9, 11 };
+        else if (keyMode.equalsIgnoreCase ("Mixolydian"))
+            intervals = { 0, 2, 4, 5, 7, 9, 10 };
+        else if (keyMode.equalsIgnoreCase ("Locrian"))
+            intervals = { 0, 1, 3, 5, 6, 8, 10 };
         else
+            intervals = { 0, 2, 4, 5, 7, 9, 11 }; // Fallback to Major
+            
+        juce::Array<int> scale;
+        for (int interval : intervals)
+            scale.add ((rootPitch + interval) % 12);
+            
+        return scale;
+    }
+
+    juce::Array<int> getChordPitchClasses (const juce::String& root, const juce::String& quality)
+    {
+        juce::Array<int> chordPitches;
+        auto* def = ChordDatabase::getInstance().getChord (root, quality, 0);
+        if (def != nullptr)
         {
-            if (diff == 0) // i
+            auto getPitchClass = [](const juce::String& r) -> int {
+                if (r == "C") return 0;
+                if (r == "Db" || r == "C#") return 1;
+                if (r == "D") return 2;
+                if (r == "Eb" || r == "D#") return 3;
+                if (r == "E") return 4;
+                if (r == "F") return 5;
+                if (r == "Gb" || r == "F#") return 6;
+                if (r == "G") return 7;
+                if (r == "Ab" || r == "G#") return 8;
+                if (r == "A") return 9;
+                if (r == "Bb" || r == "A#") return 10;
+                if (r == "B") return 11;
+                return 0;
+            };
+            int rootPitch = getPitchClass (root);
+            for (int interval : def->intervals)
             {
-                if (quality == "Min" || quality == "Min7" || quality == "Min9" || quality == "Min11" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
+                chordPitches.add ((rootPitch + interval + def->rootMidiOffset + 120) % 12);
             }
-            else if (diff == 2) // ii°
-            {
-                if (quality == "Dim" || quality == "m7b5" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 3) // III
-            {
-                if (quality == "Maj" || quality == "Maj7" || quality == "6" || quality == "Maj9" || quality == "Sus2" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 5) // iv
-            {
-                if (quality == "Min" || quality == "Min7" || quality == "Min9" || quality == "Min11" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 7) // v / V
-            {
-                if (quality == "Min" || quality == "Min7" || quality == "Maj" || quality == "7" || quality == "9" || quality == "Sus2" || quality == "Sus4" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 8) // VI
-            {
-                if (quality == "Maj" || quality == "Maj7" || quality == "6" || quality == "Sus2" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-            else if (diff == 10) // VII
-            {
-                if (quality == "Maj" || quality == "7" || quality == "9" || quality == "Sus2" || quality == "5")
-                    return juce::Colour (0xff10b981);
-            }
-
-            // Modal Mixtures (Yellow)
-            if (diff == 0 && (quality == "Maj" || quality == "7" || quality == "Maj7")) return juce::Colour (0xfff59e0b);
-            if (diff == 5 && (quality == "Maj" || quality == "7")) return juce::Colour (0xfff59e0b);
-            if (diff == 2 && (quality == "Min" || quality == "Min7")) return juce::Colour (0xfff59e0b);
-            if (diff == 2 && (quality == "Maj" || quality == "7")) return juce::Colour (0xfff59e0b);
-            if (diff == 11 && (quality == "Dim" || quality == "m7b5")) return juce::Colour (0xfff59e0b);
         }
+        return chordPitches;
+    }
 
+    juce::Colour getChordTheoryColour (const juce::String& activeKey, const juce::String& root, const juce::String& quality, juce::Colour fallbackColour = juce::Colour (0xffef4444))
+    {
+        juce::Array<int> scalePitches = getScalePitchClasses (activeKey);
+        juce::Array<int> chordPitches = getChordPitchClasses (root, quality);
+        
+        if (chordPitches.isEmpty())
+            return fallbackColour;
+            
+        bool allDiatonic = true;
+        for (int p : chordPitches)
+        {
+            if (! scalePitches.contains (p))
+            {
+                allDiatonic = false;
+                break;
+            }
+        }
+        
+        if (allDiatonic)
+            return juce::Colour (0xff10b981); // Diatonic (Green)
+            
+        auto getPitchClass = [](const juce::String& r) -> int {
+            if (r == "C") return 0;
+            if (r == "Db" || r == "C#") return 1;
+            if (r == "D") return 2;
+            if (r == "Eb" || r == "D#") return 3;
+            if (r == "E") return 4;
+            if (r == "F") return 5;
+            if (r == "Gb" || r == "F#") return 6;
+            if (r == "G") return 7;
+            if (r == "Ab" || r == "G#") return 8;
+            if (r == "A") return 9;
+            if (r == "Bb" || r == "A#") return 10;
+            if (r == "B") return 11;
+            return 0;
+        };
+        int rootPitch = getPitchClass (root);
+        
+        if (scalePitches.contains (rootPitch))
+            return juce::Colour (0xfff59e0b); // Modal Mixture (Yellow)
+            
+        juce::String parallelKey = activeKey;
+        if (activeKey.containsIgnoreCase ("Maj"))
+            parallelKey = activeKey.replace ("Maj", "Min");
+        else if (activeKey.containsIgnoreCase ("Min"))
+            parallelKey = activeKey.replace ("Min", "Maj");
+            
+        juce::Array<int> parallelPitches = getScalePitchClasses (parallelKey);
+        if (parallelPitches.contains (rootPitch))
+            return juce::Colour (0xfff59e0b); // Parallel borrow (Yellow)
+            
         return fallbackColour;
+    }
+
+    int getPitchClass (const juce::String& r)
+    {
+        if (r == "C") return 0;
+        if (r == "Db" || r == "C#") return 1;
+        if (r == "D") return 2;
+        if (r == "Eb" || r == "D#") return 3;
+        if (r == "E") return 4;
+        if (r == "F") return 5;
+        if (r == "Gb" || r == "F#") return 6;
+        if (r == "G") return 7;
+        if (r == "Ab" || r == "G#") return 8;
+        if (r == "A") return 9;
+        if (r == "Bb" || r == "A#") return 10;
+        if (r == "B") return 11;
+        return 0;
+    }
+
+    juce::String getRootNameFromPitchClass (int pc)
+    {
+        juce::StringArray pitches = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+        return pitches[((pc % 12) + 12) % 12];
+    }
+
+    juce::String getDurationTextForBeats (int beats)
+    {
+        if (beats == 1) return "1/4";
+        if (beats == 2) return "2/4";
+        if (beats == 3) return "3/4";
+        if (beats == 4) return "4/4";
+        if (beats == 5) return "5/4";
+        if (beats == 6) return "6/4";
+        if (beats == 7) return "7/4";
+        return "4/4";
+    }
+
+    juce::String getCanonicalChordName (const juce::String& root, const juce::String& quality, int inversion)
+    {
+        auto* def = ChordDatabase::getInstance().getChord (root, quality, inversion);
+        if (def != nullptr)
+            return def->name;
+        return root + " " + quality;
     }
 }
 
@@ -416,8 +478,9 @@ void InspectorComponent::paint (juce::Graphics& g)
     // =========================================================================
     auto playBar = area.removeFromBottom(45);
     auto playWidth = playBar.getWidth();
-    playButtonBounds = playBar.removeFromLeft(static_cast<int>(playWidth * 0.45f));
-    exportBounds = playBar.removeFromLeft(static_cast<int>(playWidth * 0.25f));
+    playButtonBounds = playBar.removeFromLeft(static_cast<int>(playWidth * 0.35f));
+    menuBounds = playBar.removeFromLeft(static_cast<int>(playWidth * 0.20f));
+    mixerBounds = playBar.removeFromLeft(static_cast<int>(playWidth * 0.20f));
     bpmBounds = playBar;
     
     juce::String playText = arrangement.isPlaying() ? 
@@ -425,7 +488,8 @@ void InspectorComponent::paint (juce::Graphics& g)
         juce::String::fromUTF8("\xe2\x96\xb6  PLAY");
     
     drawHardwareButton(g, playButtonBounds, playText, juce::Colour(0xff3b82f6));
-    drawHardwareButton(g, exportBounds, "EXPORT", juce::Colour(0xff8b5cf6));
+    drawHardwareButton(g, menuBounds, "MENU", juce::Colour(0xff8b5cf6));
+    drawHardwareButton(g, mixerBounds, "MIXER", ThemeManager::getSystemAccentColor());
     
     juce::String bpmText = "BPM: " + juce::String(arrangement.getBpm(), 1);
     drawHardwareButton(g, bpmBounds, bpmText, juce::Colour(0xff10b981));
@@ -571,13 +635,35 @@ void InspectorComponent::paint (juce::Graphics& g)
     invButtonBounds = topRow2;
     
     juce::String keyText = "Key: " + arrangement.activeKey;
-    juce::String bassText = "Bass: " + (selectedChord ? getChordBassNoteName (selectedChord->root, selectedChord->quality, selectedChord->inversion) : "C");
+    juce::String bassText = "Bass: ";
+    if (selectedChord)
+    {
+        if (selectedChord->customBassNote.isNotEmpty())
+            bassText += selectedChord->customBassNote;
+        else
+            bassText += getChordBassNoteName (selectedChord->root, selectedChord->quality, selectedChord->inversion);
+    }
+    else
+    {
+        bassText += "C";
+    }
     juce::Colour invColor = (selectedChord && selectedChord->inversion > 0) ? ThemeManager::getSystemAccentColor() : btnGrey;
     
     drawHardwareButton(g, keyButtonBounds, keyText, btnGrey);
     drawHardwareButton(g, bassButtonBounds, bassText, btnGrey);
     drawHardwareButton(g, categoryButtonBounds, currentCategory, ThemeManager::getSystemAccentColor());
     drawHardwareButton(g, invButtonBounds, "INV", invColor);
+
+    if (selectedChord != nullptr)
+    {
+        passingChordButtonBounds = area.removeFromTop(45);
+        area.removeFromTop(10);
+        drawHardwareButton(g, passingChordButtonBounds, "Insert Passing Chord", juce::Colour(0xff3b82f6));
+    }
+    else
+    {
+        passingChordButtonBounds = juce::Rectangle<int>();
+    }
 
     auto gridArea = area;
     int totalWidth = area.getWidth();
@@ -704,6 +790,64 @@ void InspectorComponent::paint (juce::Graphics& g)
 
 void InspectorComponent::resized() {}
 
+void InspectorComponent::constrainScrollOffsets()
+{
+    auto area = getLocalBounds().reduced (12);
+    area.removeFromBottom (45);
+    area.removeFromBottom (10);
+    area.removeFromTop (45); // topRow1
+    area.removeFromTop (45); // topRow2
+    area.removeFromTop (10); // spacer
+    
+    bool hasSelection = false;
+    for (auto& cb : arrangement.getChords())
+    {
+        if (cb.isSelected) { hasSelection = true; break; }
+    }
+    if (hasSelection)
+    {
+        area.removeFromTop (45); // passingChordButtonBounds
+        area.removeFromTop (10); // spacer
+    }
+    
+    int cellHeight = 45;
+    
+    // Constrain Roots
+    if (rootsScrollOffset > 0) rootsScrollOffset = 0;
+    int totalRootsHeight = 7 * cellHeight;
+    int maxRootsScroll = - (totalRootsHeight - area.getHeight() + 120);
+    if (maxRootsScroll > 0) maxRootsScroll = 0;
+    if (rootsScrollOffset < maxRootsScroll) rootsScrollOffset = maxRootsScroll;
+    
+    // Constrain Durations
+    if (durationsScrollOffset > 0) durationsScrollOffset = 0;
+    int totalDurationsHeight = 11 * cellHeight;
+    int maxDurationsScroll = - (totalDurationsHeight - area.getHeight() + 120);
+    if (maxDurationsScroll > 0) maxDurationsScroll = 0;
+    if (durationsScrollOffset < maxDurationsScroll) durationsScrollOffset = maxDurationsScroll;
+    
+    // Constrain Qualities
+    if (qualitiesScrollOffset > 0) qualitiesScrollOffset = 0;
+    
+    int totalQualitiesHeight = 0;
+    if (isAdviceModeActive && currentCategory == "Common Chords")
+    {
+        int maxItems = juce::jmax (currentAdvice.safe.size(), currentAdvice.tension.size(), currentAdvice.experimental.size());
+        totalQualitiesHeight = maxItems * cellHeight;
+    }
+    else
+    {
+        juce::StringArray displayQualities = getQualitiesForCategory (currentCategory);
+        int qCount = displayQualities.size();
+        int colCount = (qCount + 2) / 3;
+        totalQualitiesHeight = colCount * cellHeight;
+    }
+    
+    int maxQualitiesScroll = - (totalQualitiesHeight - area.getHeight() + 120);
+    if (maxQualitiesScroll > 0) maxQualitiesScroll = 0;
+    if (qualitiesScrollOffset < maxQualitiesScroll) qualitiesScrollOffset = maxQualitiesScroll;
+}
+
 void InspectorComponent::mouseWheelMove (const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel)
 {
     if (isInversionDrawerActive)
@@ -713,9 +857,20 @@ void InspectorComponent::mouseWheelMove (const juce::MouseEvent& event, const ju
     auto area = getLocalBounds().reduced (12);
     area.removeFromBottom (45);
     area.removeFromBottom (10);
-    area.removeFromTop (45);
-    area.removeFromTop (45);
-    area.removeFromTop (10);
+    area.removeFromTop (45); // topRow1
+    area.removeFromTop (45); // topRow2
+    area.removeFromTop (10); // spacer
+    
+    bool hasSelection = false;
+    for (auto& cb : arrangement.getChords())
+    {
+        if (cb.isSelected) { hasSelection = true; break; }
+    }
+    if (hasSelection)
+    {
+        area.removeFromTop (45); // passingChordButtonBounds
+        area.removeFromTop (10); // spacer
+    }
     
     int totalWidth = area.getWidth();
     auto rootCol = area.removeFromLeft (static_cast<int> (totalWidth * 0.15f));
@@ -723,43 +878,21 @@ void InspectorComponent::mouseWheelMove (const juce::MouseEvent& event, const ju
     auto durationCol = area.removeFromRight (static_cast<int> (totalWidth * 0.15f));
     area.removeFromRight (8);
     auto qualitiesArea = area;
-
-    int cellHeight = 45;
     
     if (rootCol.contains (pos))
     {
         rootsScrollOffset += static_cast<int>(wheel.deltaY * 100.0f);
-        if (rootsScrollOffset > 0) rootsScrollOffset = 0;
-        
-        int totalHeightNeeded = 7 * cellHeight; // Roots list size is 7
-        int maxScroll = - (totalHeightNeeded - area.getHeight() + 20);
-        if (maxScroll > 0) maxScroll = 0;
-        if (rootsScrollOffset < maxScroll) rootsScrollOffset = maxScroll;
     }
     else if (durationCol.contains (pos))
     {
         durationsScrollOffset += static_cast<int>(wheel.deltaY * 100.0f);
-        if (durationsScrollOffset > 0) durationsScrollOffset = 0;
-        
-        int totalHeightNeeded = 11 * cellHeight; // Durations list size is 11
-        int maxScroll = - (totalHeightNeeded - area.getHeight() + 20);
-        if (maxScroll > 0) maxScroll = 0;
-        if (durationsScrollOffset < maxScroll) durationsScrollOffset = maxScroll;
     }
     else if (qualitiesArea.contains (pos))
     {
         qualitiesScrollOffset += static_cast<int>(wheel.deltaY * 100.0f);
-        if (qualitiesScrollOffset > 0) qualitiesScrollOffset = 0;
-        
-        juce::StringArray displayQualities = getQualitiesForCategory(currentCategory);
-        int qCount = displayQualities.size();
-        int colCount = (qCount + 2) / 3;
-        int totalHeightNeeded = colCount * cellHeight;
-        int maxScroll = - (totalHeightNeeded - area.getHeight() + 20);
-        if (maxScroll > 0) maxScroll = 0;
-        if (qualitiesScrollOffset < maxScroll) qualitiesScrollOffset = maxScroll;
     }
     
+    constrainScrollOffsets();
     repaint();
 }
 
@@ -779,34 +912,14 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
     
     auto playBar = area.removeFromBottom (45);
     auto playWidth = playBar.getWidth();
-    playButtonBounds = playBar.removeFromLeft (static_cast<int> (playWidth * 0.45f));
-    exportBounds = playBar.removeFromLeft (static_cast<int> (playWidth * 0.25f));
+    playButtonBounds = playBar.removeFromLeft (static_cast<int> (playWidth * 0.35f));
+    menuBounds = playBar.removeFromLeft (static_cast<int> (playWidth * 0.20f));
+    mixerBounds = playBar.removeFromLeft (static_cast<int> (playWidth * 0.20f));
     bpmBounds = playBar;
     
     area.removeFromBottom (10);
     
-    if (! arrangement.isClipboardModeActive)
-    {
-        auto topRow1 = area.removeFromTop (45);
-        auto topRow2 = area.removeFromTop (45);
-        
-        auto accidentals = topRow1.removeFromLeft (150);
-        flatButtonBounds = accidentals.removeFromLeft (50);
-        naturalButtonBounds = accidentals.removeFromLeft (50);
-        sharpButtonBounds = accidentals.removeFromLeft (50);
-        
-        auto actions = topRow1.removeFromRight (200);
-        removeButtonBounds = actions.removeFromRight (100);
-        insertButtonBounds = actions;
-        
-        auto row2Width = topRow2.getWidth();
-        keyButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.25f));
-        bassButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.25f));
-        categoryButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.30f));
-        invButtonBounds = topRow2;
-    }
-    
-    // Bottom transport / export
+    // Bottom transport / export / mixer clicks check first
     if (playButtonBounds.contains (pos))
     {
         bool currentPlayState = arrangement.isPlaying();
@@ -819,37 +932,159 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
         initialDragBpm = arrangement.getBpm();
         return;
     }
-    else if (exportBounds.contains (pos))
+    else if (mixerBounds.contains (pos))
     {
-        juce::PopupMenu menu;
-        menu.addItem (1, "Export Multitrack MIDI (.mid)");
-        menu.addItem (2, "Export Offline Audio (.wav)");
+        ThemeManager::triggerHapticImpact();
+        if (onMixerButtonToggled != nullptr)
+            onMixerButtonToggled();
+        return;
+    }
+    else if (menuBounds.contains (pos))
+    {
+        ThemeManager::triggerHapticImpact();
+        if (onMenuButtonToggled != nullptr)
+            onMenuButtonToggled();
+        return;
+    }
+
+    if (isInversionDrawerActive)
+    {
+        // Handle Inversion Drawer internal clicks with correct coordinates
+        auto titleArea = area.removeFromTop (40);
+        auto gridArea = area.removeFromTop (180);
+        area.removeFromTop (15);
+        auto controlRow = area.removeFromTop (45);
         
-        menu.showMenuAsync (juce::PopupMenu::Options(), [this](int result)
+        int cellW = gridArea.getWidth() / 3;
+        int cellH = gridArea.getHeight() / 3;
+        
+        for (int r = 0; r < 3; ++r)
         {
-            if (result == 1)
+            for (int c = 0; c < 3; ++c)
             {
-                performMidiExport (arrangement.getChords(), arrangement.getBpm());
-            }
-            else if (result == 2)
-            {
-                if (exportThread != nullptr && exportThread->isThreadRunning())
+                juce::Rectangle<int> cellBounds (gridArea.getX() + c * cellW, gridArea.getY() + r * cellH, cellW, cellH);
+                if (cellBounds.contains (pos))
                 {
-                    juce::AlertWindow::showMessageBoxAsync (
-                        juce::AlertWindow::WarningIcon,
-                        "Export in Progress",
-                        "An offline render export is already running in the background.",
-                        "OK"
+                    auto& chords = arrangement.getChords();
+                    ChordBlock* selectedChord = nullptr;
+                    for (auto& cb : chords)
+                    {
+                        if (cb.isSelected) { selectedChord = &cb; break; }
+                    }
+                    
+                    if (selectedChord != nullptr)
+                    {
+                        auto proceedInversionChange = [this, selectedChord, r, c]()
+                        {
+                            selectedChord->octave = c;
+                            selectedChord->inversion = r;
+                            selectedChord->customBassNote = "";
+                            
+                            auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, selectedChord->inversion);
+                            if (def != nullptr)
+                                selectedChord->name = def->name;
+                            else
+                                selectedChord->name = selectedChord->root + " " + selectedChord->quality;
+                            
+                            arrangement.sendProgressionToAudioThread();
+                            arrangement.notifyChanges();
+                            repaint();
+                        };
+
+                        if (selectedChord->customBassNote.isNotEmpty())
+                        {
+                            juce::AlertWindow::showOkCancelBox (
+                                juce::AlertWindow::QuestionIcon,
+                                "Clear Custom Bass Note?",
+                                "Changing the inversion will clear your custom bass note (" + selectedChord->customBassNote + "). Proceed?",
+                                "Yes",
+                                "Cancel",
+                                nullptr,
+                                juce::ModalCallbackFunction::create ([proceedInversionChange](int result)
+                                {
+                                    if (result != 0)
+                                    {
+                                        proceedInversionChange();
+                                    }
+                                })
+                            );
+                        }
+                        else
+                        {
+                            proceedInversionChange();
+                        }
+                        return;
+                    }
+                    repaint();
+                    return;
+                }
+            }
+        }
+        
+        int btnW = controlRow.getWidth() / 2;
+        auto autoSelectBounds = controlRow.removeFromLeft (btnW);
+        auto closeBounds = controlRow;
+        
+        if (autoSelectBounds.contains (pos))
+        {
+            auto& chords = arrangement.getChords();
+            ChordBlock* selectedChord = nullptr;
+            for (auto& cb : chords)
+            {
+                if (cb.isSelected) { selectedChord = &cb; break; }
+            }
+            
+            if (selectedChord != nullptr)
+            {
+                auto proceedReset = [this, selectedChord]()
+                {
+                    selectedChord->octave = 1;
+                    selectedChord->inversion = 0;
+                    selectedChord->customBassNote = "";
+                    auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, 0);
+                    if (def != nullptr)
+                        selectedChord->name = def->name;
+                    else
+                        selectedChord->name = selectedChord->root + " " + selectedChord->quality;
+                        
+                    arrangement.sendProgressionToAudioThread();
+                    arrangement.notifyChanges();
+                    repaint();
+                };
+                
+                if (selectedChord->customBassNote.isNotEmpty())
+                {
+                    juce::AlertWindow::showOkCancelBox (
+                        juce::AlertWindow::QuestionIcon,
+                        "Clear Custom Bass Note?",
+                        "Resetting will clear your custom bass note (" + selectedChord->customBassNote + "). Proceed?",
+                        "Yes",
+                        "Cancel",
+                        nullptr,
+                        juce::ModalCallbackFunction::create ([proceedReset](int result)
+                        {
+                            if (result != 0)
+                            {
+                                proceedReset();
+                            }
+                        })
                     );
                 }
                 else
                 {
-                    exportThread = std::make_unique<OfflineRenderThread> (arrangement.getChords(), arrangement.getBpm());
-                    exportThread->startThread();
+                    proceedReset();
                 }
             }
-        });
-        return;
+            return;
+        }
+        else if (closeBounds.contains (pos))
+        {
+            isInversionDrawerActive = false;
+            repaint();
+            return;
+        }
+        
+        return; // Consume click if inversion overlay is active
     }
 
     if (arrangement.isClipboardModeActive) 
@@ -1019,87 +1254,135 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
         
         return;
     }
-    if (isInversionDrawerActive)
+
+    // Standard view buttons: Accidentals & Actions
+    auto topRow1 = area.removeFromTop (45);
+    auto topRow2 = area.removeFromTop (45);
+    
+    // Check if a chord is selected
+    auto& chords = arrangement.getChords();
+    ChordBlock* selectedChord = nullptr;
+    int selectedIndex = -1;
+    for (int i = 0; i < chords.size(); ++i)
     {
-        // Handle Inversion Drawer internal clicks
-        auto titleArea = area.removeFromTop (40);
-        auto gridArea = area.removeFromTop (180);
-        area.removeFromTop (15);
-        auto controlRow = area.removeFromTop (45);
-        
-        int cellW = gridArea.getWidth() / 3;
-        int cellH = gridArea.getHeight() / 3;
-        
-        for (int r = 0; r < 3; ++r)
+        if (chords[i].isSelected)
         {
-            for (int c = 0; c < 3; ++c)
-            {
-                juce::Rectangle<int> cellBounds (gridArea.getX() + c * cellW, gridArea.getY() + r * cellH, cellW, cellH);
-                if (cellBounds.contains (pos))
-                {
-                    auto& chords = arrangement.getChords();
-                    ChordBlock* selectedChord = nullptr;
-                    for (auto& cb : chords)
-                    {
-                        if (cb.isSelected) { selectedChord = &cb; break; }
-                    }
-                    
-                    if (selectedChord != nullptr)
-                    {
-                        selectedChord->octave = c;
-                        selectedChord->inversion = r;
-                        
-                        auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, selectedChord->inversion);
-                        if (def != nullptr)
-                            selectedChord->name = def->name;
-                        else
-                            selectedChord->name = selectedChord->root + " " + selectedChord->quality;
-                        
-                        arrangement.sendProgressionToAudioThread();
-                        arrangement.notifyChanges();
-                    }
-                    repaint();
-                    return;
-                }
-            }
+            selectedChord = &chords.getReference(i);
+            selectedIndex = i;
+            break;
         }
+    }
+    
+    if (selectedChord != nullptr)
+    {
+        passingChordButtonBounds = area.removeFromTop (45);
+        area.removeFromTop (10);
+    }
+    else
+    {
+        passingChordButtonBounds = juce::Rectangle<int>();
+    }
+    
+    if (selectedChord != nullptr && passingChordButtonBounds.contains (pos))
+    {
+        ThemeManager::triggerHapticImpact();
         
-        int btnW = controlRow.getWidth() / 2;
-        auto autoSelectBounds = controlRow.removeFromLeft (btnW);
-        auto closeBounds = controlRow;
+        int nextIndex = (selectedIndex + 1) % chords.size();
+        auto& targetChord = chords.getReference (nextIndex);
         
-        if (autoSelectBounds.contains (pos))
+        int targetRootPC = getPitchClass (targetChord.root);
+        
+        int secDomRootPC = (targetRootPC + 7) % 12;
+        int tritoneSubRootPC = (targetRootPC + 1) % 12;
+        int leadingToneRootPC = (targetRootPC + 11) % 12;
+        
+        juce::String secDomRoot = getRootNameFromPitchClass (secDomRootPC);
+        juce::String tritoneSubRoot = getRootNameFromPitchClass (tritoneSubRootPC);
+        juce::String leadingToneRoot = getRootNameFromPitchClass (leadingToneRootPC);
+        
+        juce::PopupMenu menu;
+        menu.addItem (1, secDomRoot + "7 (Secondary Dominant)");
+        menu.addItem (2, tritoneSubRoot + "7 (Tritone Sub)");
+        menu.addItem (3, leadingToneRoot + "Dim7 (Leading Tone)");
+        
+        menu.showMenuAsync (juce::PopupMenu::Options(), [this, selectedIndex, secDomRoot, tritoneSubRoot, leadingToneRoot](int result)
         {
+            if (result == 0) return;
+            
             auto& chords = arrangement.getChords();
-            for (auto& cb : chords)
+            if (selectedIndex < 0 || selectedIndex >= chords.size()) return;
+            
+            juce::String chosenRoot;
+            juce::String chosenQuality;
+            if (result == 1)
             {
-                if (cb.isSelected)
-                {
-                    cb.octave = 1;
-                    cb.inversion = 0;
-                    auto* def = ChordDatabase::getInstance().getChord (cb.root, cb.quality, 0);
-                    if (def != nullptr)
-                        cb.name = def->name;
-                    else
-                        cb.name = cb.root + " " + cb.quality;
-                }
+                chosenRoot = secDomRoot;
+                chosenQuality = "7";
             }
+            else if (result == 2)
+            {
+                chosenRoot = tritoneSubRoot;
+                chosenQuality = "7";
+            }
+            else if (result == 3)
+            {
+                chosenRoot = leadingToneRoot;
+                chosenQuality = "Dim7";
+            }
+            
+            auto& cb = chords.getReference (selectedIndex);
+            if (cb.durationBeats > 1)
+            {
+                cb.durationBeats -= 1;
+                cb.durationText = getDurationTextForBeats (cb.durationBeats);
+                cb.isSelected = false;
+                
+                ChordBlock newBlock;
+                newBlock.root = chosenRoot;
+                newBlock.quality = chosenQuality;
+                newBlock.name = getCanonicalChordName (chosenRoot, chosenQuality, 0);
+                newBlock.inversion = 0;
+                newBlock.durationBeats = 1;
+                newBlock.durationText = "1/4";
+                newBlock.colour = juce::Colour (0xff0f172a);
+                newBlock.isSelected = true;
+                newBlock.octave = 1;
+                
+                chords.insert (selectedIndex + 1, newBlock);
+            }
+            else
+            {
+                cb.root = chosenRoot;
+                cb.quality = chosenQuality;
+                cb.name = getCanonicalChordName (chosenRoot, chosenQuality, cb.inversion);
+                cb.customBassNote = "";
+            }
+            
             arrangement.sendProgressionToAudioThread();
             arrangement.notifyChanges();
+            updateAiAdvice();
             repaint();
-            return;
-        }
-        else if (closeBounds.contains (pos))
-        {
-            isInversionDrawerActive = false;
-            repaint();
-            return;
-        }
+        });
         
-        return; // Consume click if inversion overlay is active
+        return;
     }
+    
+    auto accidentals = topRow1.removeFromLeft (150);
+    flatButtonBounds = accidentals.removeFromLeft (50);
+    naturalButtonBounds = accidentals.removeFromLeft (50);
+    sharpButtonBounds = accidentals.removeFromLeft (50);
+    
+    auto actions = topRow1.removeFromRight (200);
+    removeButtonBounds = actions.removeFromRight (100);
+    insertButtonBounds = actions;
+    
+    auto row2Width = topRow2.getWidth();
+    keyButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.25f));
+    bassButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.25f));
+    categoryButtonBounds = topRow2.removeFromLeft (static_cast<int> (row2Width * 0.30f));
+    invButtonBounds = topRow2;
 
-    // Accidentals buttons
+    // Accidentals buttons click handling
     if (flatButtonBounds.contains (pos))
     {
         auto& chords = arrangement.getChords();
@@ -1181,7 +1464,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
         return;
     }
 
-    // Top action row
+    // Top action row clicks handling
     if (insertButtonBounds.contains (pos))
     {
         auto& chords = arrangement.getChords();
@@ -1229,19 +1512,33 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
     else if (keyButtonBounds.contains (pos))
     {
         juce::PopupMenu menu;
-        juce::StringArray keysList = { "C Maj", "Db Maj", "D Maj", "Eb Maj", "E Maj", "F Maj", "Gb Maj", "G Maj", "Ab Maj", "A Maj", "Bb Maj", "B Maj", "A Min", "E Min", "D Min", "G Min" };
-        for (int i = 0; i < keysList.size(); ++i)
+        juce::StringArray roots = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+        juce::StringArray modes = { "Maj", "Min", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Locrian" };
+        
+        for (int r = 0; r < roots.size(); ++r)
         {
-            menu.addItem (i + 1, keysList[i], true, arrangement.activeKey == keysList[i]);
+            juce::PopupMenu modeSubMenu;
+            for (int m = 0; m < modes.size(); ++m)
+            {
+                juce::String keyName = roots[r] + " " + modes[m];
+                bool isCurrent = (arrangement.activeKey == keyName);
+                modeSubMenu.addItem (r * 100 + m + 1, keyName, true, isCurrent);
+            }
+            menu.addSubMenu (roots[r], modeSubMenu);
         }
         
-        menu.showMenuAsync (juce::PopupMenu::Options(), [this, keysList](int result)
+        menu.showMenuAsync (juce::PopupMenu::Options(), [this, roots, modes](int result)
         {
-            if (result >= 1 && result <= keysList.size())
+            if (result >= 1)
             {
-                arrangement.activeKey = keysList[result - 1];
-                arrangement.notifyChanges();
-                updateAiAdvice();
+                int rIdx = (result - 1) / 100;
+                int mIdx = (result - 1) % 100;
+                if (rIdx >= 0 && rIdx < roots.size() && mIdx >= 0 && mIdx < modes.size())
+                {
+                    arrangement.activeKey = roots[rIdx] + " " + modes[mIdx];
+                    arrangement.notifyChanges();
+                    updateAiAdvice();
+                }
             }
         });
         return;
@@ -1249,54 +1546,107 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
     else if (bassButtonBounds.contains (pos))
     {
         auto& chords = arrangement.getChords();
-        ChordBlock* selectedChord = nullptr;
-        for (auto& cb : chords)
+        int selectedIndex = -1;
+        for (int i = 0; i < chords.size(); ++i)
         {
-            if (cb.isSelected) { selectedChord = &cb; break; }
+            if (chords[i].isSelected) { selectedIndex = i; break; }
         }
         
-        if (selectedChord != nullptr)
+        if (selectedIndex != -1)
         {
+            auto& selectedChord = chords.getReference (selectedIndex);
             juce::PopupMenu menu;
-            juce::StringArray availableBassNotes;
-            juce::Array<int> inversionMap;
             
-            for (int inv = 0; inv < 4; ++inv)
+            juce::StringArray pitches = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+            juce::Array<int> scalePitches = getScalePitchClasses (arrangement.activeKey);
+            juce::Array<int> chordPitches = getChordPitchClasses (selectedChord.root, selectedChord.quality);
+            
+            juce::String currentBass;
+            if (selectedChord.customBassNote.isNotEmpty())
+                currentBass = selectedChord.customBassNote;
+            else
+                currentBass = getChordBassNoteName (selectedChord.root, selectedChord.quality, selectedChord.inversion);
+                
+            auto getPitchClass = [](const juce::String& r) -> int {
+                if (r == "C") return 0;
+                if (r == "Db" || r == "C#") return 1;
+                if (r == "D") return 2;
+                if (r == "Eb" || r == "D#") return 3;
+                if (r == "E") return 4;
+                if (r == "F") return 5;
+                if (r == "Gb" || r == "F#") return 6;
+                if (r == "G") return 7;
+                if (r == "Ab" || r == "G#") return 8;
+                if (r == "A") return 9;
+                if (r == "Bb" || r == "A#") return 10;
+                if (r == "B") return 11;
+                return 0;
+            };
+            
+            for (int i = 0; i < pitches.size(); ++i)
             {
-                auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, inv);
-                if (def != nullptr)
-                {
-                    juce::String bassName = getChordBassNoteName (selectedChord->root, selectedChord->quality, inv);
-                    if (! availableBassNotes.contains (bassName))
-                    {
-                        availableBassNotes.add (bassName);
-                        inversionMap.add (inv);
-                    }
-                }
-            }
-            
-            juce::String currentBass = getChordBassNoteName (selectedChord->root, selectedChord->quality, selectedChord->inversion);
-            
-            for (int i = 0; i < availableBassNotes.size(); ++i)
-            {
-                menu.addItem (i + 1, availableBassNotes[i], true, currentBass == availableBassNotes[i]);
-            }
-            
-            menu.showMenuAsync (juce::PopupMenu::Options(), [this, selectedChord, availableBassNotes, inversionMap](int result)
-            {
-                if (result >= 1 && result <= availableBassNotes.size())
-                {
-                    int targetInv = inversionMap[result - 1];
-                    selectedChord->inversion = targetInv;
+                int pClass = getPitchClass (pitches[i]);
+                bool isChordTone = chordPitches.contains (pClass);
+                bool isKeyTone = scalePitches.contains (pClass);
+                
+                juce::String label = pitches[i];
+                if (pitches[i] == selectedChord.root)
+                    label += " (Chord Root)";
+                else if (isChordTone)
+                    label += " (Chord Tone)";
+                else if (isKeyTone)
+                    label += " (Key Tone)";
                     
-                    auto* def = ChordDatabase::getInstance().getChord (selectedChord->root, selectedChord->quality, targetInv);
-                    if (def != nullptr)
-                        selectedChord->name = def->name;
-                    else
-                        selectedChord->name = selectedChord->root + " " + selectedChord->quality;
+                bool isSuggested = isChordTone || isKeyTone;
+                bool isTicked = (currentBass == pitches[i]);
+                
+                if (isSuggested)
+                    menu.addColouredItem (i + 1, label, juce::Colour (0xff10b981), true, isTicked);
+                else
+                    menu.addItem (i + 1, label, true, isTicked);
+            }
+            
+            menu.showMenuAsync (juce::PopupMenu::Options(), [this, selectedIndex, pitches](int result)
+            {
+                if (result >= 1 && result <= pitches.size())
+                {
+                    auto& chords = arrangement.getChords();
+                    if (selectedIndex >= 0 && selectedIndex < chords.size())
+                    {
+                        auto& selectedChord = chords.getReference (selectedIndex);
+                        juce::String targetBass = pitches[result - 1];
                         
-                    arrangement.sendProgressionToAudioThread();
-                    arrangement.notifyChanges();
+                        int targetInv = -1;
+                        for (int inv = 0; inv < 4; ++inv)
+                        {
+                            if (getChordBassNoteName (selectedChord.root, selectedChord.quality, inv) == targetBass)
+                            {
+                                targetInv = inv;
+                                break;
+                            }
+                        }
+                        
+                        if (targetInv != -1)
+                        {
+                            selectedChord.inversion = targetInv;
+                            selectedChord.customBassNote = "";
+                            
+                            auto* def = ChordDatabase::getInstance().getChord (selectedChord.root, selectedChord.quality, targetInv);
+                            if (def != nullptr)
+                                selectedChord.name = def->name;
+                            else
+                                selectedChord.name = selectedChord.root + " " + selectedChord.quality;
+                        }
+                        else
+                        {
+                            selectedChord.customBassNote = targetBass;
+                            selectedChord.inversion = 0;
+                            selectedChord.name = selectedChord.root + " " + selectedChord.quality + "/" + targetBass;
+                        }
+                        
+                        arrangement.sendProgressionToAudioThread();
+                        arrangement.notifyChanges();
+                    }
                 }
             });
         }
@@ -1309,45 +1659,48 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
         return;
     }
 
-
-
-    // Grid Column Clicks
-    area = getLocalBounds().reduced (12);
-    area.removeFromBottom (45);
-    area.removeFromBottom (10);
-    area.removeFromTop (45);
-    area.removeFromTop (45);
-    area.removeFromTop (10);
-
+    // Grid Column click / drag initialization
+    area.removeFromTop (10); // Spacer
+    
     int totalWidth = area.getWidth();
     auto rootCol = area.removeFromLeft (static_cast<int> (totalWidth * 0.15f));
     area.removeFromLeft (8);
     auto durationCol = area.removeFromRight (static_cast<int> (totalWidth * 0.15f));
     area.removeFromRight (8);
-
+    
     auto qualitiesArea = area;
-    auto qualitiesClickArea = qualitiesArea; // Save it before mutating!
+    auto qualitiesClickArea = qualitiesArea;
     int qWidth = qualitiesArea.getWidth() / 3;
     auto qCol1 = qualitiesArea.removeFromLeft (qWidth);
     auto qCol2 = qualitiesArea.removeFromLeft (qWidth);
     auto qCol3 = qualitiesArea;
-
-    auto& chords = arrangement.getChords();
-    ChordBlock* selectedChord = nullptr;
-    for (auto& cb : chords)
+    
+    // Check drag start column
+    isDraggingRoots = false;
+    isDraggingQualities = false;
+    isDraggingDurations = false;
+    
+    if (rootCol.contains (pos))
     {
-        if (cb.isSelected)
-        {
-            selectedChord = &cb;
-            break;
-        }
+        isDraggingRoots = true;
+        rootsScrollOffsetAtDragStart = rootsScrollOffset;
+    }
+    else if (durationCol.contains (pos))
+    {
+        isDraggingDurations = true;
+        durationsScrollOffsetAtDragStart = durationsScrollOffset;
+    }
+    else if (qualitiesClickArea.contains (pos))
+    {
+        isDraggingQualities = true;
+        qualitiesScrollOffsetAtDragStart = qualitiesScrollOffset;
     }
 
     if (selectedChord == nullptr)
         return;
-
+        
     int cellHeight = 45;
-
+    
     // Click on Roots Column
     if (rootCol.contains (pos))
     {
@@ -1383,7 +1736,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
             else if (dur == "9/8") beats = 3;
             else if (dur == "11/8") beats = 4;
             else if (dur == "12/8") beats = 4;
-
+            
             selectedChord->durationBeats = beats;
             selectedChord->durationText = dur;
             arrangement.sendProgressionToAudioThread();
@@ -1391,7 +1744,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
             updateAiAdvice();
         }
     }
-    // Click on Qualities / Suggestions Area
+    // Click on Qualities Area
     else if (qualitiesClickArea.contains (pos))
     {
         juce::String clickedSuggestionOrQuality = "";
@@ -1416,7 +1769,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
                 if (idx >= 0 && idx < currentAdvice.experimental.size())
                     clickedSuggestionOrQuality = currentAdvice.experimental[idx];
             }
-
+            
             if (clickedSuggestionOrQuality.isNotEmpty())
             {
                 juce::StringArray tokens;
@@ -1445,7 +1798,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
                 else if (i < colCount * 2) qList2.add (displayQualities[i]);
                 else qList3.add (displayQualities[i]);
             }
-
+            
             if (qCol1.contains (pos))
             {
                 int idx = (pos.y - qCol1.getY() - qualitiesScrollOffset) / cellHeight;
@@ -1464,7 +1817,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
                 if (idx >= 0 && idx < qList3.size())
                     clickedSuggestionOrQuality = qList3[idx];
             }
-
+            
             if (clickedSuggestionOrQuality.isNotEmpty())
             {
                 selectedChord->quality = clickedSuggestionOrQuality;
@@ -1486,18 +1839,46 @@ void InspectorComponent::mouseDrag (const juce::MouseEvent& event)
         newBpm = juce::jlimit (20.0f, 300.0f, newBpm);
         arrangement.setTempo (newBpm);
     }
+    else if (isDraggingRoots)
+    {
+        rootsScrollOffset = rootsScrollOffsetAtDragStart + event.getOffsetFromDragStart().y;
+        constrainScrollOffsets();
+        repaint();
+    }
+    else if (isDraggingDurations)
+    {
+        durationsScrollOffset = durationsScrollOffsetAtDragStart + event.getOffsetFromDragStart().y;
+        constrainScrollOffsets();
+        repaint();
+    }
+    else if (isDraggingQualities)
+    {
+        qualitiesScrollOffset = qualitiesScrollOffsetAtDragStart + event.getOffsetFromDragStart().y;
+        constrainScrollOffsets();
+        repaint();
+    }
 }
 
 void InspectorComponent::mouseUp (const juce::MouseEvent& event)
 {
+    isDraggingRoots = false;
+    isDraggingDurations = false;
+    isDraggingQualities = false;
+
     if (bpmBounds.contains (event.getMouseDownPosition()) && ! event.mouseWasDraggedSinceMouseDown())
     {
         auto* alert = new juce::AlertWindow ("Change BPM", "Enter new BPM (20 - 300):", juce::AlertWindow::QuestionIcon);
         alert->addTextEditor ("bpmText", juce::String (arrangement.getBpm(), 1), "BPM:");
+        
+        auto* toggle = new juce::ToggleButton ("Apply globally to all sections");
+        toggle->setToggleState (false, juce::dontSendNotification);
+        toggle->setSize (250, 24);
+        alert->addCustomComponent (toggle);
+        
         alert->addButton ("OK", 1, juce::KeyPress (juce::KeyPress::returnKey));
         alert->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
         
-        alert->enterModalState (true, juce::ModalCallbackFunction::create ([this, alert] (int result)
+        alert->enterModalState (true, juce::ModalCallbackFunction::create ([this, alert, toggle] (int result)
         {
             if (result == 1)
             {
@@ -1505,9 +1886,11 @@ void InspectorComponent::mouseUp (const juce::MouseEvent& event)
                 float val = text.getFloatValue();
                 if (val >= 20.0f && val <= 300.0f)
                 {
-                    arrangement.setTempo (val);
+                    bool applyGlobally = toggle->getToggleState();
+                    arrangement.setTempo (val, applyGlobally);
                 }
             }
+            delete toggle;
             delete alert;
         }), true);
     }

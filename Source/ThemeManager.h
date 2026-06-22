@@ -1,4 +1,7 @@
 #pragma once
+#if JUCE_ANDROID
+ #define JUCE_CORE_INCLUDE_JNI_HELPERS 1
+#endif
 #include <JuceHeader.h>
 
 #if JUCE_ANDROID

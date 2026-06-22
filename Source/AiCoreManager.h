@@ -1,5 +1,7 @@
 #pragma once
-
+#if JUCE_ANDROID
+ #define JUCE_CORE_INCLUDE_JNI_HELPERS 1
+#endif
 #include <JuceHeader.h>
 #include <functional>
 #include <string>
@@ -60,8 +62,17 @@ public:
         keyTokens.addTokens (activeKey, " ", "");
         if (keyTokens.size() > 0)
             keyRoot = keyTokens[0];
-        if (keyTokens.size() > 1 && keyTokens[1].equalsIgnoreCase ("Min"))
-            isMajorKey = false;
+        if (keyTokens.size() > 1)
+        {
+            juce::String modeStr = keyTokens[1];
+            if (modeStr.equalsIgnoreCase ("Min") || 
+                modeStr.equalsIgnoreCase ("Dorian") || 
+                modeStr.equalsIgnoreCase ("Phrygian") || 
+                modeStr.equalsIgnoreCase ("Locrian"))
+            {
+                isMajorKey = false;
+            }
+        }
 
         juce::StringArray roots = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
         int keyPitch = roots.indexOf (keyRoot);
@@ -115,6 +126,220 @@ public:
         }
 
         return advice;
+    }
+
+    struct AutoComposerTrack
+    {
+        struct ChordInfo
+        {
+            juce::String root;
+            juce::String quality;
+            int inversion = 0;
+            int durationBeats = 4;
+            juce::String durationText = "4/4";
+            int octave = 1;
+        };
+        
+        struct LaneInfo
+        {
+            bool enabled = true;
+            int gmProgramNumber = 0;
+            juce::String patternId = "";
+        };
+        
+        std::vector<ChordInfo> chords;
+        std::vector<LaneInfo> lanes;
+        float bpm = 120.0f;
+        juce::String key = "C Maj";
+        juce::String name = "Untitled AI Song";
+    };
+
+    void generateFullTrackAsync (const juce::String& theme, std::function<void(const AutoComposerTrack&)> callback)
+    {
+        juce::Thread::launch ([this, theme, callback]()
+        {
+            AutoComposerTrack track;
+            bool success = false;
+            
+            #if JUCE_ANDROID
+            if (isModelAvailableAndroid())
+            {
+                juce::String prompt = "You are a music auto-composer. The user selected the theme: \"" + theme + "\". "
+                                      "Generate an 8-chord progression and instrument track assignments (exactly 13 tracks, lane 12 is drums locked to gmProgramNumber 0 and a drum pattern like drums_standard_rock_8th_hats). "
+                                      "Return the result strictly as a JSON object of this structure: "
+                                      "{\"key\":\"C Maj\",\"bpm\":120,\"chords\":[{\"root\":\"C\",\"quality\":\"Maj\",\"inversion\":0,\"durationBeats\":4,\"durationText\":\"4/4\",\"octave\":1},...],\"lanes\":[{\"enabled\":true,\"gmProgramNumber\":0,\"patternId\":\"comp_whole_note_hold_all\"},...]}";
+                
+                juce::String response = generateResponseAndroid (prompt);
+                if (response.isNotEmpty())
+                {
+                    success = parseAutoComposerResponse (response, track);
+                }
+            }
+            #endif
+            
+            if (! success)
+            {
+                juce::Thread::sleep (200); // Simulated delay
+                track = getAutoComposerFallback (theme);
+            }
+            
+            juce::MessageManager::callAsync ([track, callback]()
+            {
+                callback (track);
+            });
+        });
+    }
+
+    static bool parseAutoComposerResponse (const juce::String& responseText, AutoComposerTrack& track)
+    {
+        auto parsed = juce::JSON::parse (responseText);
+        if (! parsed.isObject()) return false;
+        
+        auto* obj = parsed.getDynamicObject();
+        if (obj == nullptr) return false;
+        
+        track.key = obj->getProperty ("key").toString();
+        track.bpm = static_cast<float> (obj->getProperty ("bpm"));
+        if (track.bpm <= 20.0f || track.bpm >= 300.0f) track.bpm = 120.0f;
+        track.name = "AI Song (" + track.key + ")";
+        
+        auto chordsVar = obj->getProperty ("chords");
+        if (auto* chordsArr = chordsVar.getArray())
+        {
+            track.chords.clear();
+            for (auto& var : *chordsArr)
+            {
+                if (auto* cObj = var.getDynamicObject())
+                {
+                    AutoComposerTrack::ChordInfo c;
+                    c.root = cObj->getProperty ("root").toString();
+                    c.quality = cObj->getProperty ("quality").toString();
+                    c.inversion = static_cast<int> (cObj->getProperty ("inversion"));
+                    c.durationBeats = static_cast<int> (cObj->getProperty ("durationBeats"));
+                    c.durationText = cObj->getProperty ("durationText").toString();
+                    c.octave = static_cast<int> (cObj->getProperty ("octave"));
+                    track.chords.push_back (c);
+                }
+            }
+        }
+        
+        auto lanesVar = obj->getProperty ("lanes");
+        if (auto* lanesArr = lanesVar.getArray())
+        {
+            track.lanes.clear();
+            for (auto& var : *lanesArr)
+            {
+                if (auto* lObj = var.getDynamicObject())
+                {
+                    AutoComposerTrack::LaneInfo l;
+                    l.enabled = static_cast<bool> (lObj->getProperty ("enabled"));
+                    l.gmProgramNumber = static_cast<int> (lObj->getProperty ("gmProgramNumber"));
+                    l.patternId = lObj->getProperty ("patternId").toString();
+                    track.lanes.push_back (l);
+                }
+            }
+        }
+        
+        if (track.chords.empty()) return false;
+        if (track.lanes.size() < 13) track.lanes.resize (13);
+        
+        return true;
+    }
+
+    static AutoComposerTrack getAutoComposerFallback (const juce::String& theme)
+    {
+        AutoComposerTrack track;
+        track.name = theme + " Sketch";
+        
+        track.lanes.resize (13);
+        for (int i = 0; i < 12; ++i)
+            track.lanes[i] = { false, 0, "" };
+        track.lanes[12] = { true, 0, "drums_standard_rock_8th_hats" };
+        
+        if (theme == "Plain Pop")
+        {
+            track.key = "C Maj";
+            track.bpm = 120.0f;
+            
+            track.chords = {
+                { "C", "Maj", 0, 4, "4/4", 1 },
+                { "G", "Maj", 0, 4, "4/4", 1 },
+                { "A", "Min", 0, 4, "4/4", 1 },
+                { "F", "Maj", 0, 4, "4/4", 1 },
+                { "C", "Maj", 0, 4, "4/4", 1 },
+                { "G", "Maj", 0, 4, "4/4", 1 },
+                { "A", "Min", 0, 4, "4/4", 1 },
+                { "F", "Maj", 0, 4, "4/4", 1 }
+            };
+            
+            track.lanes[0] = { true, 0, "comp_syncopated_pop_all" };
+            track.lanes[3] = { true, 25, "arp_8th_up_2oct" };
+            track.lanes[4] = { true, 33, "bass_driving_8ths_root-fifth-octave" };
+            track.lanes[12] = { true, 0, "drums_standard_rock_8th_hats" };
+        }
+        else if (theme == "Justified Jazz")
+        {
+            track.key = "C Maj";
+            track.bpm = 110.0f;
+            
+            track.chords = {
+                { "D", "Min7", 0, 4, "4/4", 1 },
+                { "G", "7", 0, 4, "4/4", 1 },
+                { "C", "Maj7", 0, 4, "4/4", 1 },
+                { "A", "7", 0, 4, "4/4", 1 },
+                { "D", "Min7", 0, 4, "4/4", 1 },
+                { "G", "7", 0, 4, "4/4", 1 },
+                { "C", "Maj7", 0, 4, "4/4", 1 },
+                { "C", "Maj7", 0, 4, "4/4", 1 }
+            };
+            
+            track.lanes[0] = { true, 0, "comp_syncopated_pop_all" };
+            track.lanes[2] = { true, 26, "arp_quarter_up_2oct" };
+            track.lanes[4] = { true, 32, "bass_walking_quarter_feel_root-fifth-octave" };
+            track.lanes[12] = { true, 0, "drums_four_on_floor_8th_hats" };
+        }
+        else if (theme == "Cinematic Epic")
+        {
+            track.key = "A Min";
+            track.bpm = 90.0f;
+            
+            track.chords = {
+                { "A", "Min", 0, 4, "4/4", 1 },
+                { "F", "Maj", 0, 4, "4/4", 1 },
+                { "C", "Maj", 0, 4, "4/4", 1 },
+                { "G", "Maj", 0, 4, "4/4", 1 },
+                { "A", "Min", 0, 4, "4/4", 1 },
+                { "F", "Maj", 0, 4, "4/4", 1 },
+                { "D", "Min", 0, 4, "4/4", 1 },
+                { "E", "Maj", 0, 4, "4/4", 1 }
+            };
+            
+            track.lanes[5] = { true, 48, "comp_whole_note_hold_all" };
+            track.lanes[7] = { true, 60, "arp_quarter_down_2oct" };
+            track.lanes[12] = { true, 0, "drums_standard_rock_quarter_hats" };
+        }
+        else // Lo-Fi Chill
+        {
+            track.key = "C Maj";
+            track.bpm = 80.0f;
+            
+            track.chords = {
+                { "F", "Maj7", 0, 4, "4/4", 1 },
+                { "G", "7", 0, 4, "4/4", 1 },
+                { "E", "Min7", 0, 4, "4/4", 1 },
+                { "A", "Min7", 0, 4, "4/4", 1 },
+                { "F", "Maj7", 0, 4, "4/4", 1 },
+                { "G", "7", 0, 4, "4/4", 1 },
+                { "E", "Min7", 0, 4, "4/4", 1 },
+                { "A", "Min7", 0, 4, "4/4", 1 }
+            };
+            
+            track.lanes[1] = { true, 4, "comp_whole_note_hold_rootless" };
+            track.lanes[4] = { true, 39, "bass_root_sustained_root only" };
+            track.lanes[12] = { true, 0, "drums_four_on_floor_off-beat_hats" };
+        }
+        
+        return track;
     }
 
     bool isModelAvailable() const

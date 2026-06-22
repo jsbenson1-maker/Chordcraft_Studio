@@ -1,0 +1,102 @@
+[
+  {
+    "id": "piano_pad",
+    "name": "Piano: Sustained Pad",
+    "instrument": "Acoustic Grand Piano",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 90, "duration": 3840 },
+      { "tick": 0, "degree": 1, "velocity": 90, "duration": 3840 },
+      { "tick": 0, "degree": 2, "velocity": 90, "duration": 3840 }
+    ]
+  },
+  {
+    "id": "piano_chords",
+    "name": "Piano: Rhythmic Chords",
+    "instrument": "Acoustic Grand Piano",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 95, "duration": 480 },
+      { "tick": 0, "degree": 1, "velocity": 95, "duration": 480 },
+      { "tick": 0, "degree": 2, "velocity": 95, "duration": 480 },
+      { "tick": 960, "degree": 0, "velocity": 85, "duration": 480 },
+      { "tick": 960, "degree": 1, "velocity": 85, "duration": 480 },
+      { "tick": 960, "degree": 2, "velocity": 85, "duration": 480 },
+      { "tick": 1920, "degree": 0, "velocity": 90, "duration": 480 },
+      { "tick": 1920, "degree": 1, "velocity": 90, "duration": 480 },
+      { "tick": 1920, "degree": 2, "velocity": 90, "duration": 480 },
+      { "tick": 2880, "degree": 0, "velocity": 80, "duration": 480 },
+      { "tick": 2880, "degree": 1, "velocity": 80, "duration": 480 },
+      { "tick": 2880, "degree": 2, "velocity": 80, "duration": 480 }
+    ]
+  },
+  {
+    "id": "bass_root",
+    "name": "Bass: Roots",
+    "instrument": "Acoustic Bass",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 100, "duration": 1920 },
+      { "tick": 1920, "degree": 0, "velocity": 100, "duration": 1920 }
+    ]
+  },
+  {
+    "id": "bass_groove",
+    "name": "Bass: Walking",
+    "instrument": "Acoustic Bass",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 100, "duration": 960 },
+      { "tick": 960, "degree": 1, "velocity": 90, "duration": 960 },
+      { "tick": 1920, "degree": 2, "velocity": 95, "duration": 960 },
+      { "tick": 2880, "degree": 12, "velocity": 85, "duration": 960 }
+    ]
+  },
+  {
+    "id": "guitar_arp",
+    "name": "Guitar: Arpeggio",
+    "instrument": "Acoustic Guitar (nylon)",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 85, "duration": 480 },
+      { "tick": 480, "degree": 1, "velocity": 85, "duration": 480 },
+      { "tick": 960, "degree": 2, "velocity": 85, "duration": 480 },
+      { "tick": 1440, "degree": 12, "velocity": 80, "duration": 480 },
+      { "tick": 1920, "degree": 2, "velocity": 85, "duration": 480 },
+      { "tick": 2400, "degree": 1, "velocity": 85, "duration": 480 },
+      { "tick": 2880, "degree": 0, "velocity": 85, "duration": 480 },
+      { "tick": 3360, "degree": 1, "velocity": 80, "duration": 480 }
+    ]
+  },
+  {
+    "id": "strings_pad",
+    "name": "Strings: Slow Pad",
+    "instrument": "String Ensemble 1",
+    "notes": [
+      { "tick": 0, "degree": 0, "velocity": 75, "duration": 3840 },
+      { "tick": 0, "degree": 1, "velocity": 75, "duration": 3840 },
+      { "tick": 0, "degree": 2, "velocity": 75, "duration": 3840 }
+    ]
+  },
+  {
+    "id": "drums_rock",
+    "name": "Drums: Rock Groove",
+    "instrument": "Drums",
+    "notes": [
+      { "tick": 0, "drumMidi": 36, "velocity": 110, "duration": 480 },
+      { "tick": 960, "drumMidi": 38, "velocity": 100, "duration": 480 },
+      { "tick": 1920, "drumMidi": 36, "velocity": 110, "duration": 480 },
+      { "tick": 2880, "drumMidi": 38, "velocity": 100, "duration": 480 }
+    ]
+  },
+  {
+    "id": "drums_dance",
+    "name": "Drums: Dance Beat",
+    "instrument": "Drums",
+    "notes": [
+      { "tick": 0, "drumMidi": 36, "velocity": 110, "duration": 240 },
+      { "tick": 480, "drumMidi": 42, "velocity": 90, "duration": 240 },
+      { "tick": 960, "drumMidi": 38, "velocity": 100, "duration": 240 },
+      { "tick": 1440, "drumMidi": 42, "velocity": 90, "duration": 240 },
+      { "tick": 1920, "drumMidi": 36, "velocity": 110, "duration": 240 },
+      { "tick": 2400, "drumMidi": 42, "velocity": 90, "duration": 240 },
+      { "tick": 2880, "drumMidi": 38, "velocity": 100, "duration": 240 },
+      { "tick": 3360, "drumMidi": 42, "velocity": 90, "duration": 240 }
+    ]
+  }
+]

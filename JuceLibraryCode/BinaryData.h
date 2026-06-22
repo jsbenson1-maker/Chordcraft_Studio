@@ -8,11 +8,20 @@
 
 namespace BinaryData
 {
+    extern const char*   CCS_png;
+    const int            CCS_pngSize = 8643;
+
+    extern const char*   patterns_master_json;
+    const int            patterns_master_jsonSize = 1906349;
+
     extern const char*   chords_json;
     const int            chords_jsonSize = 470510;
 
+    extern const char*   general_midi_sf2;
+    const int            general_midi_sf2Size = 5994284;
+
     // Number of elements in the namedResourceList and originalFileNames arrays.
-    const int namedResourceListSize = 1;
+    const int namedResourceListSize = 4;
 
     // Points to the start of a list of resource names.
     extern const char* namedResourceList[];

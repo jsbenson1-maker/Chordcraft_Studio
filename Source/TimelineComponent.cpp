@@ -17,6 +17,13 @@ TimelineComponent::~TimelineComponent()
 
 void TimelineComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 {
+    if (auto* vp = findParentComponentOfClass<juce::Viewport>())
+    {
+        auto& chords = arrangement.getChords();
+        int numRows = (chords.size() + 3) / 4;
+        int totalHeight = std::max (vp->getHeight(), numRows * 70 + 24);
+        setSize (vp->getWidth() - 16, totalHeight);
+    }
     resized();
     repaint();
 }
@@ -45,9 +52,28 @@ void TimelineComponent::paint (juce::Graphics& g)
     auto& chords = arrangement.getChords();
     bool isPlaying = arrangement.isPlaying();
     int playheadTick = arrangement.getPlayheadTick();
+    auto* processor = arrangement.getAudioProcessor();
+    bool isPreviewActive = (processor != nullptr && processor->isPreviewActive());
+
+    const int ticksPerQuarterNote = 960;
+
+    int mainPlayheadIndex = -1;
+    if (isPlaying && ! isPreviewActive)
+    {
+        int tempStartTick = 0;
+        for (int idx = 0; idx < chords.size(); ++idx)
+        {
+            int blockDurationTicks = chords[idx].durationBeats * ticksPerQuarterNote;
+            if (playheadTick >= tempStartTick && playheadTick < tempStartTick + blockDurationTicks)
+            {
+                mainPlayheadIndex = idx;
+                break;
+            }
+            tempStartTick += blockDurationTicks;
+        }
+    }
 
     int currentStartTick = 0;
-    const int ticksPerQuarterNote = 960;
 
     for (int i = 0; i < chords.size(); ++i)
     {
@@ -61,9 +87,21 @@ void TimelineComponent::paint (juce::Graphics& g)
         // Base block colors
         if (chord.isSelected)
         {
-            g.setColour (ThemeManager::getSystemAccentColor().withAlpha(0.2f)); 
+            juce::Colour glowColour = juce::Colour (0xff3b82f6); // Vibrant Blue
+            
+            // Outer glow rings
+            g.setColour (glowColour.withAlpha (0.08f));
+            g.drawRoundedRectangle (bounds.expanded (3.0f), cornerRadius + 2.0f, 4.0f);
+            
+            g.setColour (glowColour.withAlpha (0.16f));
+            g.drawRoundedRectangle (bounds.expanded (1.5f), cornerRadius + 1.0f, 2.5f);
+            
+            // Fill background
+            g.setColour (glowColour.withAlpha (0.22f)); 
             g.fillRoundedRectangle (bounds, cornerRadius);
-            g.setColour (ThemeManager::getSystemAccentDark()); 
+            
+            // Main solid border
+            g.setColour (glowColour); 
             g.drawRoundedRectangle (bounds, cornerRadius, 2.0f);
         }
         else
@@ -75,9 +113,28 @@ void TimelineComponent::paint (juce::Graphics& g)
         }
 
         // --- PLAYBACK WIPE OVERLAY ---
-        if (isPlaying && playheadTick >= currentStartTick && playheadTick < blockEndTick)
+        bool shouldDrawWipe = false;
+        double progress = 0.0;
+
+        if (isPlaying && ! isPreviewActive)
         {
-            double progress = (double) (playheadTick - currentStartTick) / blockDurationTicks;
+            if (i == mainPlayheadIndex)
+            {
+                shouldDrawWipe = true;
+                progress = (double) (playheadTick - currentStartTick) / blockDurationTicks;
+            }
+        }
+        else
+        {
+            if (isPreviewActive && i == previewBlockIndex)
+            {
+                shouldDrawWipe = true;
+                progress = (double) playheadTick / 3840.0;
+            }
+        }
+
+        if (shouldDrawWipe)
+        {
             float progressF = (float) juce::jlimit (0.0, 1.0, progress);
             
             // Draw active border or glow
@@ -112,12 +169,12 @@ void TimelineComponent::paint (juce::Graphics& g)
         g.drawText (chord.name, nameBounds, juce::Justification::centredBottom, false);
 
         // Time Signature
-        g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor() : juce::Colour(0xff9ca3af)); 
+        g.setColour (chord.isSelected ? juce::Colour (0xff93c5fd) : juce::Colour(0xff9ca3af)); 
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
         g.drawText (chord.durationText, sigBounds, juce::Justification::centred, false);
 
         // Inversion Text
-        g.setColour (chord.isSelected ? ThemeManager::getSystemAccentColor().withAlpha(0.8f) : juce::Colour(0xff6b7280)); 
+        g.setColour (chord.isSelected ? juce::Colour (0xff60a5fa) : juce::Colour(0xff6b7280)); 
         g.setFont (juce::FontOptions (9.0f));
         g.drawText (getInversionText (chord.inversion, chord.octave), invBounds, juce::Justification::centredTop, false);
 
@@ -230,8 +287,18 @@ void TimelineComponent::mouseUp (const juce::MouseEvent& event)
         for (auto& c : chords) c.isSelected = false;
         
         if (dragStartIndex != -1) {
-            chords.getReference(dragStartIndex).isSelected = true;
+            auto& cb = chords.getReference(dragStartIndex);
+            cb.isSelected = true;
             ThemeManager::triggerHapticImpact(); 
+            
+            if (arrangement.isChordPreviewEnabled)
+            {
+                previewBlockIndex = dragStartIndex;
+                if (auto* processor = arrangement.getAudioProcessor())
+                {
+                    processor->playChordPreview (cb, arrangement.trackLanes);
+                }
+            }
         }
         arrangement.notifyChanges();
     }

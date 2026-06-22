@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <atomic>
 
 // Forward declarations
 struct ChordBlock;
@@ -48,6 +49,40 @@ private:
     T buffer[Size];
 };
 
+struct tsf;
+struct TrackSettings;
+using TrackLane = TrackSettings;
+struct SongSection;
+
+struct SequencerEvent
+{
+    int tick = 0;
+    int midiNote = 0;
+    int velocity = 0;
+    int channel = 0; // 0-15
+    bool isNoteOn = true;
+};
+
+struct PlaybackSection
+{
+    std::string name;
+    int startTick = 0;
+    int durationTicks = 0;
+    double bpm = 120.0;
+    int loopCount = 1;
+    double startSample = 0.0;
+    double durationSamples = 0.0;
+    int programs[16] = { 0 };
+    float volumes[16] = { 0.6f };
+};
+
+struct SongPlaybackData
+{
+    std::vector<PlaybackSection> sections;
+    std::vector<SequencerEvent> events;
+    double totalDurationSamples = 0.0;
+};
+
 struct PlaybackInstruction
 {
     enum Type
@@ -58,7 +93,10 @@ struct PlaybackInstruction
         SetTempo,
         SetPlayState,
         ClearProgression,
-        UpdateProgressionBlock
+        UpdateProgressionBlock,
+        SetChannelProgram,
+        SetChannelVolume,
+        SwapProgression
     };
 
     Type type = AllNotesOff;
@@ -114,19 +152,25 @@ public:
     void clearAudition();
     void setTempo (float bpm);
     void setPlayState (bool play);
-    void sendProgressionToAudioThread (const juce::Array<ChordBlock>& chords);
+    void sendProgressionToAudioThread (const std::vector<SongSection>& sections, int activeSectionIndex);
+    void setChannelProgram (int channel, int programNumber);
+    void updateActiveMidiOutputs();
+    void playChordPreview (const ChordBlock& cb, const std::vector<TrackLane>& lanes);
 
     // Atomic getters for UI synchronization (safe to read from UI thread)
     bool isEnginePlaying() const { return isPlayingAtomic.get() != 0; }
     float getEngineTempo() const { return tempoAtomic.get(); }
     int getPlayheadTick() const { return playheadTickAtomic.get(); }
+    int getPlayingSectionIndex() const { return playingSectionIndexAtomic.get(); }
+    bool isPreviewActive() const { return isSingleShotPreview.load(); }
 
 private:
-    // Lock-free queue for instructions
-    LockFreeQueue<PlaybackInstruction> instructionQueue;
+    // Lock-free queue for instructions - enlarged to 4096 to prevent overflow with sequencer updates
+    LockFreeQueue<PlaybackInstruction, 4096> instructionQueue;
 
-    // Synthesiser for audition and synth playback
-    juce::Synthesiser synth;
+    // TinySoundFont sampler instance
+    tsf* tsfInstance = nullptr;
+    std::vector<float> interpBuffer;
 
     // Audio thread local state (only accessed/modified on audio thread)
     bool isPlayingLocal = false;
@@ -135,28 +179,25 @@ private:
     double sampleRateLocal = 44100.0;
     double samplesPerTick = 0.0;
     
-    // Internal struct for local chord progressions on the audio thread
-    struct LocalChordBlock
-    {
-        int startTick = 0;
-        int durationTicks = 0;
-        int numNotes = 0;
-        int midiNotes[8] = { 0 };
-        bool isCurrentlyPlaying = false;
-    };
-    
-    static constexpr int maxTimelineBlocks = 128;
-    LocalChordBlock localProgression[maxTimelineBlocks];
-    int numLocalProgressionBlocks = 0;
+    // Double-buffered song playback data
+    SongPlaybackData activePlaybackData;
+    SongPlaybackData stagingPlaybackData;
+    juce::CriticalSection stagingLock;
+    int lastSectionIndexPlayed = -1;
 
     // Atomic values updated by audio thread for UI visibility
     juce::Atomic<int> isPlayingAtomic { 0 };
     juce::Atomic<float> tempoAtomic { 120.0f };
     juce::Atomic<int> playheadTickAtomic { 0 };
+    juce::Atomic<int> playingSectionIndexAtomic { 0 };
+    std::atomic<bool> isSingleShotPreview { false };
 
     void processQueueInstructions();
     void runSequencer (int numSamples, juce::MidiBuffer& midiMessages);
     void updateSequencerTiming();
+
+    juce::CriticalSection midiOutputLock;
+    juce::OwnedArray<juce::MidiOutput> activeMidiOutputs;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordcraftAudioProcessor)
 };

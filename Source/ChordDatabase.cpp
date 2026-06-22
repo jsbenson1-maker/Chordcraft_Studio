@@ -53,7 +53,7 @@ void ChordDatabase::loadDatabase()
         }
     }
     
-    DBG ("ChordDatabase: Loaded " << getNumChords() << " chords.");
+    DBG ("ChordDatabase: Loaded " + juce::String (getNumChords()) + " chords.");
 }
 
 const ChordDefinition* ChordDatabase::getChord (const juce::String& root, const juce::String& quality, int inversion) const

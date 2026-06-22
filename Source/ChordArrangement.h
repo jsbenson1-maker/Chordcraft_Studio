@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "ChordcraftAudioProcessor.h"
+#include "ChordDatabase.h"
 
 struct ChordBlock
 {
@@ -15,6 +16,111 @@ struct ChordBlock
     juce::Rectangle<int> bounds; 
     juce::Array<int> midiNotes; // Resolved MIDI notes for audio playback
     int octave = 1; // 0 = Low, 1 = Mid, 2 = High (default 1)
+    juce::String customBassNote;
+};
+
+static inline juce::Array<int> resolveChordMidiNotes (const ChordBlock& cb)
+{
+    juce::Array<int> chordMidiNotes;
+    int targetInversion = cb.customBassNote.isNotEmpty() ? 0 : cb.inversion;
+    std::string keyId = (cb.root + "_" + cb.quality + "_i" + juce::String (targetInversion)).toStdString();
+    auto* def = ChordDatabase::getInstance().getChordById (keyId);
+    
+    int rootMidi = 60;
+    if (cb.octave == 0) rootMidi = 48;
+    else if (cb.octave == 2) rootMidi = 72;
+    
+    if (def != nullptr)
+    {
+        if (def->root == "Db") rootMidi += 1;
+        else if (def->root == "D") rootMidi += 2;
+        else if (def->root == "Eb") rootMidi += 3;
+        else if (def->root == "E") rootMidi += 4;
+        else if (def->root == "F") rootMidi += 5;
+        else if (def->root == "Gb") rootMidi += 6;
+        else if (def->root == "G") rootMidi += 7;
+        else if (def->root == "Ab") rootMidi += 8;
+        else if (def->root == "A") rootMidi += 9;
+        else if (def->root == "Bb") rootMidi += 10;
+        else if (def->root == "B") rootMidi += 11;
+        
+        if (cb.customBassNote.isNotEmpty())
+        {
+            auto getPitchClass = [](const juce::String& r) -> int {
+                if (r == "C") return 0;
+                if (r == "Db" || r == "C#") return 1;
+                if (r == "D") return 2;
+                if (r == "Eb" || r == "D#") return 3;
+                if (r == "E") return 4;
+                if (r == "F") return 5;
+                if (r == "Gb" || r == "F#") return 6;
+                if (r == "G") return 7;
+                if (r == "Ab" || r == "G#") return 8;
+                if (r == "A") return 9;
+                if (r == "Bb" || r == "A#") return 10;
+                if (r == "B") return 11;
+                return 0;
+            };
+            int rootPitchClass = getPitchClass (cb.root);
+            int bassPitchClass = getPitchClass (cb.customBassNote);
+            int diff = (bassPitchClass - rootPitchClass + 12) % 12;
+            int bassMidi = rootMidi - 12 + diff;
+            chordMidiNotes.add (bassMidi);
+        }
+        
+        int numNotes = juce::jmin (8, (int) def->intervals.size());
+        for (int n = 0; n < numNotes; ++n)
+            chordMidiNotes.add (rootMidi + def->intervals[n] + def->rootMidiOffset);
+    }
+    else
+    {
+        if (cb.customBassNote.isNotEmpty())
+        {
+            auto getPitchClass = [](const juce::String& r) -> int {
+                if (r == "C") return 0;
+                if (r == "Db" || r == "C#") return 1;
+                if (r == "D") return 2;
+                if (r == "Eb" || r == "D#") return 3;
+                if (r == "E") return 4;
+                if (r == "F") return 5;
+                if (r == "Gb" || r == "F#") return 6;
+                if (r == "G") return 7;
+                if (r == "Ab" || r == "G#") return 8;
+                if (r == "A") return 9;
+                if (r == "Bb" || r == "A#") return 10;
+                if (r == "B") return 11;
+                return 0;
+            };
+            int rootPitchClass = getPitchClass (cb.root);
+            int bassPitchClass = getPitchClass (cb.customBassNote);
+            int diff = (bassPitchClass - rootPitchClass + 12) % 12;
+            int bassMidi = rootMidi - 12 + diff;
+            chordMidiNotes.add (bassMidi);
+        }
+        chordMidiNotes.add (rootMidi);
+        chordMidiNotes.add (rootMidi + 4);
+        chordMidiNotes.add (rootMidi + 7);
+    }
+    return chordMidiNotes;
+}
+
+struct TrackSettings
+{
+    bool enabled = true;
+    int gmProgramNumber = 0;     // 0-127 (default 0: Acoustic Grand Piano)
+    juce::String patternId = ""; // Empty string represents no pattern
+    float volume = 0.6f;         // Track volume range [0.0f, 1.0f], default 0.6f
+    bool isDrums = false;        // Flag to identify drum tracks
+};
+
+struct SongSection
+{
+    std::string sectionName;
+    int loopCount = 1;
+    std::vector<ChordBlock> blocks;
+    double bpm = 120.0;
+    juce::String currentKey = "C Maj";
+    std::vector<TrackSettings> tracks;
 };
 
 class ChordArrangement : public juce::ChangeBroadcaster
@@ -22,11 +128,48 @@ class ChordArrangement : public juce::ChangeBroadcaster
 public:
     ChordArrangement()
     {
-        // Initial placeholder progression
-        chords.add ({ "C Maj",  "C", "Maj",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 }); 
-        chords.add ({ "G Min",  "G", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
-        chords.add ({ "A Min",  "A", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
-        chords.add ({ "F Maj7", "F", "Maj7", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        // Initial default section
+        SongSection defaultSection;
+        defaultSection.sectionName = "Section 1";
+        defaultSection.loopCount = 1;
+        defaultSection.bpm = 120.0;
+        defaultSection.currentKey = "C Maj";
+
+        // Initial default blocks
+        defaultSection.blocks.push_back ({ "C Maj",  "C", "Maj",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        defaultSection.blocks.push_back ({ "G Min",  "G", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        defaultSection.blocks.push_back ({ "A Min",  "A", "Min",  0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        defaultSection.blocks.push_back ({ "F Maj7", "F", "Maj7", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+
+        // Initialize 13 lanes (12 melodic + 1 drum)
+        for (int i = 0; i < 12; ++i)
+        {
+            TrackSettings ts;
+            ts.enabled = true;
+            ts.gmProgramNumber = 0;
+            ts.patternId = "";
+            ts.volume = 0.6f;
+            ts.isDrums = false;
+            defaultSection.tracks.push_back (ts);
+        }
+        
+        TrackSettings drumTs;
+        drumTs.enabled = true;
+        drumTs.gmProgramNumber = 0;
+        drumTs.patternId = "drums_rock";
+        drumTs.volume = 0.6f;
+        drumTs.isDrums = true;
+        defaultSection.tracks.push_back (drumTs);
+
+        sections.push_back (defaultSection);
+
+        // Load into active public members
+        chords.clear();
+        for (auto& cb : defaultSection.blocks)
+            chords.add (cb);
+        trackLanes = defaultSection.tracks;
+        bpm = 120.0f;
+        activeKey = "C Maj";
     }
 
     // Bind the audio processor to enable UI control of the audio thread
@@ -37,6 +180,110 @@ public:
         {
             sendProgressionToAudioThread();
             setTempo (bpm);
+        }
+    }
+
+    // Active public members kept in sync for backward compatibility
+    juce::Array<ChordBlock> chords;
+    std::vector<TrackSettings> trackLanes;
+    float bpm = 120.0f;
+    juce::String activeKey = "C Maj";
+    juce::String songName = "Untitled";
+
+    // Section management
+    std::vector<SongSection> sections;
+    int activeSectionIndex = 0;
+
+    void saveActiveSection()
+    {
+        if (activeSectionIndex >= 0 && activeSectionIndex < (int) sections.size())
+        {
+            auto& sec = sections[activeSectionIndex];
+            sec.blocks.clear();
+            for (int i = 0; i < chords.size(); ++i)
+                sec.blocks.push_back (chords[i]);
+            sec.tracks = trackLanes;
+            sec.bpm = bpm;
+            sec.currentKey = activeKey;
+        }
+    }
+
+    void loadActiveSection (int index)
+    {
+        saveActiveSection();
+        
+        if (index >= 0 && index < (int) sections.size())
+        {
+            activeSectionIndex = index;
+            auto& sec = sections[activeSectionIndex];
+            
+            chords.clear();
+            for (auto& cb : sec.blocks)
+                chords.add (cb);
+                
+            trackLanes = sec.tracks;
+            bpm = (float) sec.bpm;
+            activeKey = sec.currentKey;
+            
+            sendProgressionToAudioThread();
+            notifyChanges();
+        }
+    }
+
+    void addNewSection()
+    {
+        saveActiveSection();
+        int activeIdx = activeSectionIndex;
+        auto& parentSec = sections[activeIdx];
+        
+        SongSection newSec;
+        newSec.sectionName = "Section " + juce::String (sections.size() + 1).toStdString();
+        newSec.loopCount = 1;
+        newSec.bpm = parentSec.bpm;
+        newSec.currentKey = parentSec.currentKey;
+        newSec.tracks = parentSec.tracks; // Copy track settings
+        
+        // Reset blocks to default C Maj 4/4
+        newSec.blocks.push_back ({ "C Maj", "C", "Maj", 0, 4, "4/4", juce::Colour (0xff0f172a), false, {}, {}, 1 });
+        
+        sections.push_back (newSec);
+        activeSectionIndex = (int) sections.size() - 1;
+        
+        // Load new section
+        chords.clear();
+        for (auto& cb : newSec.blocks)
+            chords.add (cb);
+            
+        trackLanes = newSec.tracks;
+        bpm = (float) newSec.bpm;
+        activeKey = newSec.currentKey;
+        
+        sendProgressionToAudioThread();
+        notifyChanges();
+    }
+
+    void deleteSection (int index)
+    {
+        if (sections.size() <= 1) return; // Cannot delete last section
+        
+        if (index >= 0 && index < (int) sections.size())
+        {
+            sections.erase (sections.begin() + index);
+            if (activeSectionIndex >= (int) sections.size())
+                activeSectionIndex = (int) sections.size() - 1;
+                
+            // Reload active section
+            auto& sec = sections[activeSectionIndex];
+            chords.clear();
+            for (auto& cb : sec.blocks)
+                chords.add (cb);
+                
+            trackLanes = sec.tracks;
+            bpm = (float) sec.bpm;
+            activeKey = sec.currentKey;
+            
+            sendProgressionToAudioThread();
+            notifyChanges();
         }
     }
 
@@ -68,7 +315,11 @@ public:
     void setPlayState (bool play)
     {
         if (audioProcessor != nullptr)
+        {
+            if (play)
+                sendProgressionToAudioThread();
             audioProcessor->setPlayState (play);
+        }
     }
 
     bool isPlaying() const
@@ -78,9 +329,21 @@ public:
         return false;
     }
 
-    void setTempo (float newBpm)
+    void setTempo (float newBpm, bool applyGlobally = false)
     {
         bpm = newBpm;
+        if (applyGlobally)
+        {
+            for (auto& sec : sections)
+                sec.bpm = newBpm;
+        }
+        else
+        {
+            if (activeSectionIndex >= 0 && activeSectionIndex < (int) sections.size())
+                sections[activeSectionIndex].bpm = newBpm;
+        }
+
+        sendProgressionToAudioThread();
         if (audioProcessor != nullptr)
             audioProcessor->setTempo (newBpm);
         notifyChanges();
@@ -90,25 +353,27 @@ public:
 
     void sendProgressionToAudioThread()
     {
+        saveActiveSection();
         if (audioProcessor != nullptr)
-            audioProcessor->sendProgressionToAudioThread (chords);
+        {
+            audioProcessor->sendProgressionToAudioThread (sections, activeSectionIndex);
+        }
     }
 
-    // NEW: Global state so the Inspector knows exactly when to show the Clipboard Drawer
+    // Global UI state for Clipboard Drawer
     bool isClipboardModeActive = false; 
-
-    juce::String activeKey = "C Maj";
+    bool isLoopingEnabled = true;
+    bool isChordPreviewEnabled = true;
 
     juce::Array<ChordBlock>& getChords() { return chords; }
+    ChordcraftAudioProcessor* getAudioProcessor() const { return audioProcessor; }
 
     void notifyChanges()
     {
-        sendChangeMessage(); // Notifies the UI to repaint
+        sendChangeMessage(); // Notifies UI to repaint
     }
 
 private:
     ChordcraftAudioProcessor* audioProcessor = nullptr;
-    juce::Array<ChordBlock> chords;
-    float bpm = 120.0f;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordArrangement)
 };

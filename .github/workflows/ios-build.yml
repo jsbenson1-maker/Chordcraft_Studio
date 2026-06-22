@@ -1,0 +1,50 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install JUCE & Projucer
+        run: |
+          curl -L -o juce.zip https://github.com/juce-framework/JUCE/releases/download/8.0.13/juce-8.0.13-mac.zip
+          unzip -q juce.zip -d ..
+          mkdir -p ../juce-8.0.13-windows
+          mv ../JUCE ../juce-8.0.13-windows/JUCE
+
+      - name: Regenerate Xcode Project
+        run: |
+          ../juce-8.0.13-windows/JUCE/Projucer.app/Contents/MacOS/Projucer --resave ChordcraftStudio.jucer
+
+      - name: Build Xcode Project
+        run: |
+          xcodebuild -project Builds/iOS/ChordcraftStudio.xcodeproj \
+                     -scheme "ChordcraftStudio - iOS" \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     PROVISIONING_PROFILE_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r Builds/iOS/build/Release-iphoneos/ChordcraftStudio.app Payload/
+          zip -q -r ChordcraftStudio.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChordcraftStudio-iOS-Unsigned
+          path: ChordcraftStudio.ipa

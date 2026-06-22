@@ -29,6 +29,8 @@ private:
     
     int lastHapticIndex = -1;
 
+    int previewBlockIndex = -1;
+
     juce::uint32 mouseDownTime = 0;
     juce::String getInversionText (int inversion, int octave);
 

@@ -3,9 +3,15 @@
 #include "ChordArrangement.h"
 #include "TimelineComponent.h"
 #include "InspectorComponent.h"
+#include "TrackMixerComponent.h"
 #include "ChordcraftAudioProcessor.h"
+#include "GlobalMenuComponent.h"
+#include "SectionTabBarComponent.h"
+#include "HelpManualComponent.h"
+#include "AppLookAndFeel.h"
 
-class MainComponent  : public juce::Component
+class MainComponent  : public juce::Component,
+                       private juce::Timer
 {
 public:
     MainComponent();
@@ -24,8 +30,20 @@ private:
     ChordArrangement arrangement;
     
     // UI Components that listen to the data
+    SectionTabBarComponent sectionTabBar { arrangement };
+    juce::Viewport timelineViewport;
     TimelineComponent timeline { arrangement };
     InspectorComponent inspector { arrangement };
+    TrackMixerComponent mixer { arrangement };
+    GlobalMenuComponent menu { arrangement };
+    HelpManualComponent manual;
+    AppLookAndFeel lookAndFeel;
+
+    bool isMixerVisible = false;
+    bool isMenuVisible = false;
+    bool isManualVisible = false;
+
+    void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
