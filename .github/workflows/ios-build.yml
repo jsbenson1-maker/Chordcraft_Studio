@@ -26,7 +26,7 @@ jobs:
         run: |
           ../juce-8.0.13-windows/JUCE/Projucer.app/Contents/MacOS/Projucer --resave ChordcraftStudio.jucer
 
-     - name: Build Xcode Project
+      - name: Build Xcode Project
         run: |
           xcodebuild -project Builds/iOS/ChordcraftStudio.xcodeproj \
                      -scheme "ChordcraftStudio - App" \
