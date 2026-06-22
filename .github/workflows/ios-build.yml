@@ -40,7 +40,10 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r Builds/iOS/build/Release-iphoneos/ChordcraftStudio.app Payload/
+          # Dynamically find the .app file wherever Xcode hid it
+          APP_PATH=$(find . -name "*.app" -type d | head -n 1)
+          echo "Found compiled app at: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
           zip -q -r ChordcraftStudio.ipa Payload
 
       - name: Upload IPA Artifact
