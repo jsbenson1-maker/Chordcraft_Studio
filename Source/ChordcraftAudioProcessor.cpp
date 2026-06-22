@@ -174,91 +174,50 @@ void ChordcraftAudioProcessor::setChannelProgram (int channel, int programNumber
 
 void ChordcraftAudioProcessor::sendProgressionToAudioThread (const std::vector<SongSection>& sections, int activeSectionIndex)
 {
-    const juce::ScopedLock sl (stagingLock);
-    
-    stagingPlaybackData.sections.clear();
-    stagingPlaybackData.events.clear();
-    stagingPlaybackData.totalDurationSamples = 0.0;
-    
-    int currentStartTick = 0;
-    double currentStartSample = 0.0;
-    const int ticksPerQuarterNote = 960;
-    
-    for (int s = 0; s < (int) sections.size(); ++s)
     {
-        auto& sec = sections[s];
-        int secDurationTicks = 0;
-        for (auto& cb : sec.blocks)
-            secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
-            
-        if (secDurationTicks <= 0) continue;
+        const juce::ScopedLock sl (stagingLock);
         
-        // Loop this section loopCount times
-        for (int loop = 0; loop < sec.loopCount; ++loop)
+        stagingPlaybackData.sections.clear();
+        stagingPlaybackData.events.clear();
+        stagingPlaybackData.totalDurationSamples = 0.0;
+        
+        int currentStartTick = 0;
+        double currentStartSample = 0.0;
+        const int ticksPerQuarterNote = 960;
+        
+        for (int s = 0; s < (int) sections.size(); ++s)
         {
-            PlaybackSection pSec;
-            pSec.name = sec.sectionName + " (Loop " + std::to_string (loop + 1) + ")";
-            pSec.startTick = currentStartTick;
-            pSec.durationTicks = secDurationTicks;
-            pSec.bpm = sec.bpm;
-            pSec.loopCount = sec.loopCount;
-            pSec.startSample = currentStartSample;
-            
-            // Preset volumes and programs
-            for (int ch = 0; ch < 16; ++ch)
-            {
-                pSec.programs[ch] = 0;
-                pSec.volumes[ch] = 0.6f;
-            }
-            
-            // Map sections tracks
-            int melodicCount = 0;
-            for (int i = 0; i < (int) sec.tracks.size(); ++i)
-            {
-                int channel = 0;
-                if (sec.tracks[i].isDrums)
-                {
-                    channel = 9;
-                }
-                else
-                {
-                    if (melodicCount == 9) melodicCount++;
-                    channel = melodicCount++;
-                    if (channel > 15) channel = 15;
-                }
-                pSec.programs[channel] = sec.tracks[i].gmProgramNumber;
-                pSec.volumes[channel] = sec.tracks[i].volume;
-            }
-            
-            double secSamplesPerTick = sampleRateLocal / (16.0 * sec.bpm);
-            pSec.durationSamples = secDurationTicks * secSamplesPerTick;
-            
-            stagingPlaybackData.sections.push_back (pSec);
-            
-            // Compile all sequencer events for this loop of this section
-            int blockStartTick = currentStartTick;
-            for (int b = 0; b < (int) sec.blocks.size(); ++b)
-            {
-                auto& cb = sec.blocks[b];
-                int blockDurationTicks = cb.durationBeats * ticksPerQuarterNote;
+            auto& sec = sections[s];
+            int secDurationTicks = 0;
+            for (auto& cb : sec.blocks)
+                secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
                 
-                // Resolve MIDI notes
-                juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
+            if (secDurationTicks <= 0) continue;
+            
+            // Loop this section loopCount times
+            for (int loop = 0; loop < sec.loopCount; ++loop)
+            {
+                PlaybackSection pSec;
+                pSec.name = sec.sectionName + " (Loop " + std::to_string (loop + 1) + ")";
+                pSec.startTick = currentStartTick;
+                pSec.durationTicks = secDurationTicks;
+                pSec.bpm = sec.bpm;
+                pSec.loopCount = sec.loopCount;
+                pSec.startSample = currentStartSample;
                 
-                // Generate note events for all lanes
-                melodicCount = 0;
-                for (int laneIdx = 0; laneIdx < (int) sec.tracks.size(); ++laneIdx)
+                // Preset volumes and programs
+                for (int ch = 0; ch < 16; ++ch)
                 {
-                    auto& lane = sec.tracks[laneIdx];
-                    if (! lane.enabled || lane.patternId.isEmpty())
-                        continue;
-                        
-                    auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-                    if (pattern == nullptr)
-                        continue;
-                        
+                    pSec.programs[ch] = 0;
+                    pSec.volumes[ch] = 0.6f;
+                }
+                
+                // Map sections tracks
+                int melodicCount = 0;
+                for (int i = 0; i < (int) sec.tracks.size(); ++i)
+                {
                     int channel = 0;
-                    if (lane.isDrums)
+                    if (sec.tracks[i].isDrums)
                     {
                         channel = 9;
                     }
@@ -268,91 +227,134 @@ void ChordcraftAudioProcessor::sendProgressionToAudioThread (const std::vector<S
                         channel = melodicCount++;
                         if (channel > 15) channel = 15;
                     }
+                    pSec.programs[channel] = sec.tracks[i].gmProgramNumber;
+                    pSec.volumes[channel] = sec.tracks[i].volume;
+                }
+                
+                double secSamplesPerTick = sampleRateLocal / (16.0 * sec.bpm);
+                pSec.durationSamples = secDurationTicks * secSamplesPerTick;
+                
+                stagingPlaybackData.sections.push_back (pSec);
+                
+                // Compile all sequencer events for this loop of this section
+                int blockStartTick = currentStartTick;
+                for (int b = 0; b < (int) sec.blocks.size(); ++b)
+                {
+                    auto& cb = sec.blocks[b];
+                    int blockDurationTicks = cb.durationBeats * ticksPerQuarterNote;
                     
-                    int patternLength = 3840;
-                    int maxNoteEnd = 0;
-                    for (auto& n : pattern->notes)
-                        maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
-                    if (maxNoteEnd > 0)
-                        patternLength = maxNoteEnd;
-                        
-                    for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
+                    // Resolve MIDI notes
+                    juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
+                    
+                    // Generate note events for all lanes
+                    melodicCount = 0;
+                    for (int laneIdx = 0; laneIdx < (int) sec.tracks.size(); ++laneIdx)
                     {
-                        for (auto& note : pattern->notes)
-                        {
-                            int noteStartInBlock = offset + note.tick;
-                            if (noteStartInBlock >= blockDurationTicks)
-                                continue;
-                                
-                            int noteEndInBlock = std::min (blockDurationTicks, noteStartInBlock + note.duration);
-                            int absStartTick = blockStartTick + noteStartInBlock;
-                            int absEndTick = blockStartTick + noteEndInBlock;
+                        auto& lane = sec.tracks[laneIdx];
+                        if (! lane.enabled || lane.patternId.isEmpty())
+                            continue;
                             
-                            int midiNote = 60;
-                            if (note.drumMidi.has_value())
+                        auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
+                        if (pattern == nullptr)
+                            continue;
+                            
+                        int channel = 0;
+                        if (lane.isDrums)
+                        {
+                            channel = 9;
+                        }
+                        else
+                        {
+                            if (melodicCount == 9) melodicCount++;
+                            channel = melodicCount++;
+                            if (channel > 15) channel = 15;
+                        }
+                        
+                        int patternLength = 3840;
+                        int maxNoteEnd = 0;
+                        for (auto& n : pattern->notes)
+                            maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
+                        if (maxNoteEnd > 0)
+                            patternLength = maxNoteEnd;
+                            
+                        for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
+                        {
+                            for (auto& note : pattern->notes)
                             {
-                                midiNote = note.drumMidi.value();
-                            }
-                            else if (note.degree.has_value())
-                            {
-                                if (! chordMidiNotes.isEmpty())
-                                {
-                                    int degree = note.degree.value();
-                                    int chordSize = chordMidiNotes.size();
-                                    int wrappedDegree = ((degree % chordSize) + chordSize) % chordSize;
-                                    int octaveShift = (int)std::floor((float)degree / chordSize);
-                                    midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
+                                int noteStartInBlock = offset + note.tick;
+                                if (noteStartInBlock >= blockDurationTicks)
+                                    continue;
                                     
-                                    if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39)
+                                int noteEndInBlock = std::min (blockDurationTicks, noteStartInBlock + note.duration);
+                                int absStartTick = blockStartTick + noteStartInBlock;
+                                int absEndTick = blockStartTick + noteEndInBlock;
+                                
+                                int midiNote = 60;
+                                if (note.drumMidi.has_value())
+                                {
+                                    midiNote = note.drumMidi.value();
+                                }
+                                else if (note.degree.has_value())
+                                {
+                                    if (! chordMidiNotes.isEmpty())
                                     {
-                                        midiNote -= 24;
+                                        int degree = note.degree.value();
+                                        int chordSize = chordMidiNotes.size();
+                                        int wrappedDegree = ((degree % chordSize) + chordSize) % chordSize;
+                                        int octaveShift = (int)std::floor((float)degree / chordSize);
+                                        midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
+                                        
+                                        if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39)
+                                        {
+                                            midiNote -= 24;
+                                        }
                                     }
                                 }
+                                
+                                // Clamp note range for safety
+                                if (! note.drumMidi.has_value())
+                                {
+                                    while (midiNote < 28)  { midiNote += 12; }
+                                    while (midiNote > 108) { midiNote -= 12; }
+                                }
+                                
+                                // Generate note on
+                                SequencerEvent evOn;
+                                evOn.tick = absStartTick;
+                                evOn.midiNote = midiNote;
+                                evOn.velocity = note.velocity;
+                                evOn.channel = channel;
+                                evOn.isNoteOn = true;
+                                stagingPlaybackData.events.push_back (evOn);
+                                
+                                // Generate note off
+                                SequencerEvent evOff;
+                                evOff.tick = absEndTick;
+                                evOff.midiNote = midiNote;
+                                evOff.velocity = 0;
+                                evOff.channel = channel;
+                                evOff.isNoteOn = false;
+                                stagingPlaybackData.events.push_back (evOff);
                             }
-                            
-                            // Clamp note range for safety
-                            if (! note.drumMidi.has_value())
-                            {
-                                while (midiNote < 28)  { midiNote += 12; }
-                                while (midiNote > 108) { midiNote -= 12; }
-                            }
-                            
-                            // Generate note on
-                            SequencerEvent evOn;
-                            evOn.tick = absStartTick;
-                            evOn.midiNote = midiNote;
-                            evOn.velocity = note.velocity;
-                            evOn.channel = channel;
-                            evOn.isNoteOn = true;
-                            stagingPlaybackData.events.push_back (evOn);
-                            
-                            // Generate note off
-                            SequencerEvent evOff;
-                            evOff.tick = absEndTick;
-                            evOff.midiNote = midiNote;
-                            evOff.velocity = 0;
-                            evOff.channel = channel;
-                            evOff.isNoteOn = false;
-                            stagingPlaybackData.events.push_back (evOff);
                         }
                     }
+                    blockStartTick += blockDurationTicks;
                 }
-                blockStartTick += blockDurationTicks;
+                
+                currentStartTick += secDurationTicks;
+                currentStartSample += pSec.durationSamples;
             }
-            
-            currentStartTick += secDurationTicks;
-            currentStartSample += pSec.durationSamples;
         }
+        
+        stagingPlaybackData.totalDurationSamples = currentStartSample;
+        
+        // Sort all compiled events chronologically by tick
+        std::sort (stagingPlaybackData.events.begin(), stagingPlaybackData.events.end(), [](const SequencerEvent& a, const SequencerEvent& b) {
+            if (a.tick == b.tick)
+                return ! a.isNoteOn && b.isNoteOn; // Process note offs first at same tick
+            return a.tick < b.tick;
+        });
     }
-    
-    stagingPlaybackData.totalDurationSamples = currentStartSample;
-    
-    // Sort all compiled events chronologically by tick
-    std::sort (stagingPlaybackData.events.begin(), stagingPlaybackData.events.end(), [](const SequencerEvent& a, const SequencerEvent& b) {
-        if (a.tick == b.tick)
-            return ! a.isNoteOn && b.isNoteOn; // Process note offs first at same tick
-        return a.tick < b.tick;
-    });
     
     PlaybackInstruction swapInst;
     swapInst.type = PlaybackInstruction::SwapProgression;
@@ -654,149 +656,151 @@ void ChordcraftAudioProcessor::playChordPreview (const ChordBlock& cb, const std
     setPlayState (false);
     isSingleShotPreview.store (true);
     
-    const juce::ScopedLock sl (stagingLock);
-    
-    stagingPlaybackData.sections.clear();
-    stagingPlaybackData.events.clear();
-    
-    int ticksPerQuarterNote = 960;
-    int durationTicks = 4 * ticksPerQuarterNote;
-    
-    PlaybackSection pSec;
-    pSec.name = "Preview";
-    pSec.startTick = 0;
-    pSec.durationTicks = durationTicks;
-    pSec.bpm = tempoLocal;
-    pSec.loopCount = 1;
-    pSec.startSample = 0.0;
-    
-    for (int ch = 0; ch < 16; ++ch)
     {
-        pSec.programs[ch] = 0;
-        pSec.volumes[ch] = 0.6f;
-    }
-    
-    int melodicCount = 0;
-    for (int i = 0; i < (int) lanes.size(); ++i)
-    {
-        int channel = 0;
-        if (lanes[i].isDrums)
+        const juce::ScopedLock sl (stagingLock);
+        
+        stagingPlaybackData.sections.clear();
+        stagingPlaybackData.events.clear();
+        
+        int ticksPerQuarterNote = 960;
+        int durationTicks = 4 * ticksPerQuarterNote;
+        
+        PlaybackSection pSec;
+        pSec.name = "Preview";
+        pSec.startTick = 0;
+        pSec.durationTicks = durationTicks;
+        pSec.bpm = tempoLocal;
+        pSec.loopCount = 1;
+        pSec.startSample = 0.0;
+        
+        for (int ch = 0; ch < 16; ++ch)
         {
-            channel = 9;
-        }
-        else
-        {
-            if (melodicCount == 9) melodicCount++;
-            channel = melodicCount++;
-            if (channel > 15) channel = 15;
-        }
-        pSec.programs[channel] = lanes[i].gmProgramNumber;
-        pSec.volumes[channel] = lanes[i].volume;
-    }
-    
-    double secSamplesPerTick = sampleRateLocal / (16.0 * tempoLocal);
-    pSec.durationSamples = durationTicks * secSamplesPerTick;
-    
-    stagingPlaybackData.sections.push_back (pSec);
-    
-    juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
-    
-    melodicCount = 0;
-    for (int laneIdx = 0; laneIdx < (int) lanes.size(); ++laneIdx)
-    {
-        auto& lane = lanes[laneIdx];
-        if (! lane.enabled || lane.patternId.isEmpty())
-            continue;
-            
-        auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-        if (pattern == nullptr)
-            continue;
-            
-        int channel = 0;
-        if (lane.isDrums)
-        {
-            channel = 9;
-        }
-        else
-        {
-            if (melodicCount == 9) melodicCount++;
-            channel = melodicCount++;
-            if (channel > 15) channel = 15;
+            pSec.programs[ch] = 0;
+            pSec.volumes[ch] = 0.6f;
         }
         
-        int patternLength = 3840;
-        int maxNoteEnd = 0;
-        for (auto& n : pattern->notes)
-            maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
-        if (maxNoteEnd > 0)
-            patternLength = maxNoteEnd;
-            
-        for (int offset = 0; offset < durationTicks; offset += patternLength)
+        int melodicCount = 0;
+        for (int i = 0; i < (int) lanes.size(); ++i)
         {
-            for (auto& note : pattern->notes)
+            int channel = 0;
+            if (lanes[i].isDrums)
             {
-                int noteStartInBlock = offset + note.tick;
-                if (noteStartInBlock >= durationTicks)
-                    continue;
-                    
-                int noteEndInBlock = std::min (durationTicks, noteStartInBlock + note.duration);
-                int absStartTick = noteStartInBlock;
-                int absEndTick = noteEndInBlock;
+                channel = 9;
+            }
+            else
+            {
+                if (melodicCount == 9) melodicCount++;
+                channel = melodicCount++;
+                if (channel > 15) channel = 15;
+            }
+            pSec.programs[channel] = lanes[i].gmProgramNumber;
+            pSec.volumes[channel] = lanes[i].volume;
+        }
+        
+        double secSamplesPerTick = sampleRateLocal / (16.0 * tempoLocal);
+        pSec.durationSamples = durationTicks * secSamplesPerTick;
+        
+        stagingPlaybackData.sections.push_back (pSec);
+        
+        juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
+        
+        melodicCount = 0;
+        for (int laneIdx = 0; laneIdx < (int) lanes.size(); ++laneIdx)
+        {
+            auto& lane = lanes[laneIdx];
+            if (! lane.enabled || lane.patternId.isEmpty())
+                continue;
                 
-                int midiNote = 60;
-                if (note.drumMidi.has_value())
+            auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
+            if (pattern == nullptr)
+                continue;
+                
+            int channel = 0;
+            if (lane.isDrums)
+            {
+                channel = 9;
+            }
+            else
+            {
+                if (melodicCount == 9) melodicCount++;
+                channel = melodicCount++;
+                if (channel > 15) channel = 15;
+            }
+            
+            int patternLength = 3840;
+            int maxNoteEnd = 0;
+            for (auto& n : pattern->notes)
+                maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
+            if (maxNoteEnd > 0)
+                patternLength = maxNoteEnd;
+                
+            for (int offset = 0; offset < durationTicks; offset += patternLength)
+            {
+                for (auto& note : pattern->notes)
                 {
-                    midiNote = note.drumMidi.value();
-                }
-                else if (note.degree.has_value())
-                {
-                    if (! chordMidiNotes.isEmpty())
-                    {
-                        int degree = note.degree.value();
-                        int chordSize = chordMidiNotes.size();
-                        int wrappedDegree = ((degree % chordSize) + chordSize) % chordSize;
-                        int octaveShift = (int)std::floor((float)degree / chordSize);
-                        midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
+                    int noteStartInBlock = offset + note.tick;
+                    if (noteStartInBlock >= durationTicks)
+                        continue;
                         
-                        if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39)
+                    int noteEndInBlock = std::min (durationTicks, noteStartInBlock + note.duration);
+                    int absStartTick = noteStartInBlock;
+                    int absEndTick = noteEndInBlock;
+                    
+                    int midiNote = 60;
+                    if (note.drumMidi.has_value())
+                    {
+                        midiNote = note.drumMidi.value();
+                    }
+                    else if (note.degree.has_value())
+                    {
+                        if (! chordMidiNotes.isEmpty())
                         {
-                            midiNote -= 24;
+                            int degree = note.degree.value();
+                            int chordSize = chordMidiNotes.size();
+                            int wrappedDegree = ((degree % chordSize) + chordSize) % chordSize;
+                            int octaveShift = (int)std::floor((float)degree / chordSize);
+                            midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
+                            
+                            if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39)
+                            {
+                                midiNote -= 24;
+                            }
                         }
                     }
+                    
+                    if (! note.drumMidi.has_value())
+                    {
+                        while (midiNote < 28)  { midiNote += 12; }
+                        while (midiNote > 108) { midiNote -= 12; }
+                    }
+                    
+                    SequencerEvent evOn;
+                    evOn.tick = absStartTick;
+                    evOn.midiNote = midiNote;
+                    evOn.velocity = note.velocity;
+                    evOn.channel = channel;
+                    evOn.isNoteOn = true;
+                    stagingPlaybackData.events.push_back (evOn);
+                    
+                    SequencerEvent evOff;
+                    evOff.tick = absEndTick;
+                    evOff.midiNote = midiNote;
+                    evOff.velocity = 0;
+                    evOff.channel = channel;
+                    evOff.isNoteOn = false;
+                    stagingPlaybackData.events.push_back (evOff);
                 }
-                
-                if (! note.drumMidi.has_value())
-                {
-                    while (midiNote < 28)  { midiNote += 12; }
-                    while (midiNote > 108) { midiNote -= 12; }
-                }
-                
-                SequencerEvent evOn;
-                evOn.tick = absStartTick;
-                evOn.midiNote = midiNote;
-                evOn.velocity = note.velocity;
-                evOn.channel = channel;
-                evOn.isNoteOn = true;
-                stagingPlaybackData.events.push_back (evOn);
-                
-                SequencerEvent evOff;
-                evOff.tick = absEndTick;
-                evOff.midiNote = midiNote;
-                evOff.velocity = 0;
-                evOff.channel = channel;
-                evOff.isNoteOn = false;
-                stagingPlaybackData.events.push_back (evOff);
             }
         }
+        
+        stagingPlaybackData.totalDurationSamples = pSec.durationSamples;
+        
+        std::sort (stagingPlaybackData.events.begin(), stagingPlaybackData.events.end(), [](const SequencerEvent& a, const SequencerEvent& b) {
+            if (a.tick == b.tick)
+                return ! a.isNoteOn && b.isNoteOn;
+            return a.tick < b.tick;
+        });
     }
-    
-    stagingPlaybackData.totalDurationSamples = pSec.durationSamples;
-    
-    std::sort (stagingPlaybackData.events.begin(), stagingPlaybackData.events.end(), [](const SequencerEvent& a, const SequencerEvent& b) {
-        if (a.tick == b.tick)
-            return ! a.isNoteOn && b.isNoteOn;
-        return a.tick < b.tick;
-    });
     
     PlaybackInstruction swapInst;
     swapInst.type = PlaybackInstruction::SwapProgression;

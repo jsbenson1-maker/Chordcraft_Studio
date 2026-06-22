@@ -156,7 +156,7 @@ public:
         TrackSettings drumTs;
         drumTs.enabled = true;
         drumTs.gmProgramNumber = 0;
-        drumTs.patternId = "drums_rock";
+        drumTs.patternId = "drums_rock_basic_+_8th_hats_742";
         drumTs.volume = 0.6f;
         drumTs.isDrums = true;
         defaultSection.tracks.push_back (drumTs);
@@ -285,6 +285,51 @@ public:
             sendProgressionToAudioThread();
             notifyChanges();
         }
+    }
+
+    void resetProgression()
+    {
+        sections.clear();
+        
+        SongSection defaultSection;
+        defaultSection.sectionName = "Section 1";
+        defaultSection.loopCount = 1;
+        defaultSection.bpm = 120.0;
+        defaultSection.currentKey = "C Maj";
+        defaultSection.blocks.push_back ({ "C Maj", "C", "Maj", 0, 4, "4/4", juce::Colour (0xff0f172a), true, {}, {}, 1 });
+
+        for (int i = 0; i < 12; ++i)
+        {
+            TrackSettings ts;
+            ts.enabled = true;
+            ts.gmProgramNumber = 0;
+            ts.patternId = "";
+            ts.volume = 0.6f;
+            ts.isDrums = false;
+            defaultSection.tracks.push_back (ts);
+        }
+        TrackSettings drumTs;
+        drumTs.enabled = true;
+        drumTs.gmProgramNumber = 0;
+        drumTs.patternId = "drums_rock_basic_+_8th_hats_742";
+        drumTs.volume = 0.6f;
+        drumTs.isDrums = true;
+        defaultSection.tracks.push_back (drumTs);
+        
+        sections.push_back (defaultSection);
+        activeSectionIndex = 0;
+        
+        chords.clear();
+        for (auto& cb : defaultSection.blocks)
+            chords.add (cb);
+            
+        trackLanes = defaultSection.tracks;
+        bpm = 120.0f;
+        activeKey = "C Maj";
+        songName = "Untitled";
+        
+        sendProgressionToAudioThread();
+        notifyChanges();
     }
 
     int getPlayheadTick() const

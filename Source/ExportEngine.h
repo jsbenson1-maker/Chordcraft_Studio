@@ -16,7 +16,11 @@
 // Helper to get the export directory (Documents folder)
 inline juce::File getExportDirectory()
 {
+#if JUCE_ANDROID || JUCE_IOS
+    return juce::File::getSpecialLocation (juce::File::tempDirectory);
+#else
     return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+#endif
 }
 
 inline void shareFileOnAndroid (const juce::File& file)
@@ -253,6 +257,20 @@ inline void performMidiExport (const ChordArrangement& arrangement)
                 juce::AlertWindow::InfoIcon,
                 "MIDI Export Successful",
                 "Multitrack MIDI file saved to Documents:\n\n" + wrapPath (midFile.getFullPathName()),
+                "OK"
+            );
+            #if JUCE_ANDROID
+            shareFileOnAndroid (midFile);
+            #endif
+        });
+    }
+    else
+    {
+        juce::MessageManager::callAsync ([]() {
+            juce::AlertWindow::showMessageBoxAsync (
+                juce::AlertWindow::WarningIcon,
+                "MIDI Export Failed",
+                "Could not create output stream for the MIDI file.",
                 "OK"
             );
         });

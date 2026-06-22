@@ -58,15 +58,20 @@ public:
     
     void updateTabs()
     {
-        tabs.clear();
         int numSections = (int) arrangement.sections.size();
-        for (int i = 0; i < numSections; ++i)
+        if (tabs.size() != numSections)
         {
-            auto* t = tabs.add (new TabButton (*this, i));
-            addAndMakeVisible (t);
+            tabs.clear();
+            for (int i = 0; i < numSections; ++i)
+            {
+                auto* t = tabs.add (new TabButton (*this, i));
+                addAndMakeVisible (t);
+            }
+            resized();
         }
-        resized();
         repaint();
+        for (auto* t : tabs)
+            t->repaint();
     }
     
 private:
@@ -105,20 +110,32 @@ private:
         
         void mouseDown (const juce::MouseEvent& event) override
         {
+            longPressActive = false;
             if (event.mods.isPopupMenu())
             {
                 showContextMenu();
             }
+            else if (event.getNumberOfClicks() == 2)
+            {
+                stopTimer();
+                showEditSectionDialog();
+            }
             else
             {
-                owner.arrangement.loadActiveSection (idx);
                 startTimer (500); // Start timer for long press (500ms)
             }
         }
         
         void mouseUp (const juce::MouseEvent& event) override
         {
-            stopTimer();
+            if (isTimerRunning())
+            {
+                stopTimer();
+                if (! longPressActive && event.getNumberOfClicks() < 2)
+                {
+                    owner.arrangement.loadActiveSection (idx);
+                }
+            }
         }
 
         void mouseDrag (const juce::MouseEvent& event) override
@@ -130,13 +147,14 @@ private:
         void timerCallback() override
         {
             stopTimer();
+            longPressActive = true;
             ThemeManager::triggerHapticImpact();
             showContextMenu();
         }
 
         void mouseDoubleClick (const juce::MouseEvent& event) override
         {
-            showEditSectionDialog();
+            // Handled in mouseDown to prevent interference from first click selection reloads
         }
         
     private:
@@ -229,6 +247,7 @@ private:
         
         SectionTabBarComponent& owner;
         int idx;
+        bool longPressActive = false;
     };
     
     ChordArrangement& arrangement;

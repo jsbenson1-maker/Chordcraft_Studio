@@ -272,10 +272,10 @@ public:
                 { "F", "Maj", 0, 4, "4/4", 1 }
             };
             
-            track.lanes[0] = { true, 0, "comp_syncopated_pop_all" };
-            track.lanes[3] = { true, 25, "arp_8th_up_2oct" };
-            track.lanes[4] = { true, 33, "bass_driving_8ths_root-fifth-octave" };
-            track.lanes[12] = { true, 0, "drums_standard_rock_8th_hats" };
+            track.lanes[0] = { true, 0, "complex_vamps_vamp__pop_piano_full_spread_801" };
+            track.lanes[3] = { true, 25, "arpeggios_arp__8th_up_full_spread_441" };
+            track.lanes[4] = { true, 33, "basslines_bass__driving_8ths_root5th_alt_bass_range_650" };
+            track.lanes[12] = { true, 0, "drums_rock_basic_+_8th_hats_742" };
         }
         else if (theme == "Justified Jazz")
         {
@@ -293,10 +293,10 @@ public:
                 { "C", "Maj7", 0, 4, "4/4", 1 }
             };
             
-            track.lanes[0] = { true, 0, "comp_syncopated_pop_all" };
-            track.lanes[2] = { true, 26, "arp_quarter_up_2oct" };
-            track.lanes[4] = { true, 32, "bass_walking_quarter_feel_root-fifth-octave" };
-            track.lanes[12] = { true, 0, "drums_four_on_floor_8th_hats" };
+            track.lanes[0] = { true, 0, "complex_vamps_vamp__pop_piano_full_spread_801" };
+            track.lanes[2] = { true, 26, "arpeggios_arp__quarter_up_full_spread_406" };
+            track.lanes[4] = { true, 32, "basslines_bass__quarter_pump_walking_bass_range_640" };
+            track.lanes[12] = { true, 0, "drums_four_on_floor_+_8th_hats_752" };
         }
         else if (theme == "Cinematic Epic")
         {
@@ -314,9 +314,9 @@ public:
                 { "E", "Maj", 0, 4, "4/4", 1 }
             };
             
-            track.lanes[5] = { true, 48, "comp_whole_note_hold_all" };
-            track.lanes[7] = { true, 60, "arp_quarter_down_2oct" };
-            track.lanes[12] = { true, 0, "drums_standard_rock_quarter_hats" };
+            track.lanes[5] = { true, 48, "pads_&_holds_hold__whole_triad_full_spread_1" };
+            track.lanes[7] = { true, 60, "arpeggios_arp__quarter_down_full_spread_411" };
+            track.lanes[12] = { true, 0, "drums_rock_basic_+_quarter_hats_741" };
         }
         else // Lo-Fi Chill
         {
@@ -334,9 +334,9 @@ public:
                 { "A", "Min7", 0, 4, "4/4", 1 }
             };
             
-            track.lanes[1] = { true, 4, "comp_whole_note_hold_rootless" };
-            track.lanes[4] = { true, 39, "bass_root_sustained_root only" };
-            track.lanes[12] = { true, 0, "drums_four_on_floor_off-beat_hats" };
+            track.lanes[1] = { true, 4, "pads_&_holds_hold__whole_rootless_full_spread_36" };
+            track.lanes[4] = { true, 39, "basslines_bass__whole_root_only_bass_range_585" };
+            track.lanes[12] = { true, 0, "drums_four_on_floor_+_offbeat_open_754" };
         }
         
         return track;

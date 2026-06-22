@@ -134,7 +134,7 @@ TrackMixerComponent::MixerListContent::MixerListContent (TrackMixerComponent& o)
         TrackSettings ts;
         ts.enabled = true;
         ts.gmProgramNumber = 0;
-        ts.patternId = "drums_rock";
+        ts.patternId = "drums_rock_basic_+_8th_hats_742";
         ts.volume = 0.6f;
         ts.isDrums = true;
         owner.arrangement.trackLanes.push_back (ts);
@@ -193,7 +193,32 @@ TrackMixerComponent::MixerListContent::TrackRow::TrackRow (MixerListContent& o, 
     };
 
     addAndMakeVisible (trackLabel);
-    juce::String labelText = lane.isDrums ? "Drums (Ch10)" : "Track " + juce::String (idx + 1);
+    int channelNum = 1;
+    if (lane.isDrums)
+    {
+        channelNum = 10;
+    }
+    else
+    {
+        int melodicCount = 0;
+        for (int i = 0; i <= idx; ++i)
+        {
+            if (! owner.owner.arrangement.trackLanes[i].isDrums)
+                melodicCount++;
+        }
+        int mCount = 0;
+        for (int ch = 0; ch < 16; ++ch)
+        {
+            if (ch == 9) continue;
+            mCount++;
+            if (mCount == melodicCount)
+            {
+                channelNum = ch + 1;
+                break;
+            }
+        }
+    }
+    juce::String labelText = lane.isDrums ? "Drums (ch10)" : "Track " + juce::String (idx + 1) + " (ch" + juce::String (channelNum) + ")";
     trackLabel.setText (labelText, juce::dontSendNotification);
     trackLabel.setColour (juce::Label::textColourId, juce::Colours::white);
     trackLabel.setFont (juce::Font (12.0f, juce::Font::bold));

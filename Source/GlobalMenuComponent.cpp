@@ -400,18 +400,7 @@ void GlobalMenuComponent::performNew()
     {
         if (result == 1)
         {
-            arrangement.getChords().clear();
-            arrangement.getChords().add ({ "C Maj", "C", "Maj", 0, 4, "4/4", juce::Colour (0xff0f172a), true, {}, {}, 1 });
-            arrangement.setTempo (120.0f);
-
-            // Default lanes configuration
-            for (int i = 0; i < 12; ++i)
-                arrangement.trackLanes[i] = { true, 0, "" }; // Piano, no pattern
-            arrangement.trackLanes[12] = { true, 0, "drums_standard_rock_8th_hats" }; // Drum lane enabled
-
-            arrangement.songName = "Untitled";
-            arrangement.sendProgressionToAudioThread();
-            arrangement.notifyChanges();
+            arrangement.resetProgression();
 
             if (onCloseClicked != nullptr)
                 onCloseClicked();
@@ -527,6 +516,8 @@ void GlobalMenuComponent::performOpen()
                     auto* obj = parsed.getDynamicObject();
                     if (obj != nullptr)
                     {
+                        arrangement.resetProgression();
+
                         arrangement.songName = obj->getProperty ("songName").toString();
                         if (arrangement.songName.isEmpty())
                             arrangement.songName = file.getFileNameWithoutExtension();
@@ -681,6 +672,7 @@ void GlobalMenuComponent::performAutoComposer()
             ai->generateFullTrackAsync (theme, [this, ai](const AiCoreManager::AutoComposerTrack& track)
             {
                 // Update central arrangement
+                arrangement.resetProgression();
                 arrangement.songName = track.name;
                 arrangement.setTempo (track.bpm);
                 arrangement.activeKey = track.key;
