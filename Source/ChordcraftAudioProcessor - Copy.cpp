@@ -251,8 +251,13 @@ void ChordcraftAudioProcessor::sendProgressionToAudioThread (const std::vector<S
                     for (int laneIdx = 0; laneIdx < (int) sec.tracks.size(); ++laneIdx)
                     {
                         auto& lane = sec.tracks[laneIdx];
-
-                        // Determine the absolute channel BEFORE skipping disabled lanes
+                        if (! lane.enabled || lane.patternId.isEmpty())
+                            continue;
+                            
+                        auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
+                        if (pattern == nullptr)
+                            continue;
+                            
                         int channel = 0;
                         if (lane.isDrums)
                         {
@@ -264,21 +269,13 @@ void ChordcraftAudioProcessor::sendProgressionToAudioThread (const std::vector<S
                             channel = melodicCount++;
                             if (channel > 15) channel = 15;
                         }
-
-                        if (! lane.enabled || lane.patternId.isEmpty())
-                            continue;
-                            
-                        auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-                        if (pattern == nullptr)
-                            continue;
-                            
-                        // Round up pattern length to the nearest quarter-note (960 ticks)
+                        
                         int patternLength = 3840;
                         int maxNoteEnd = 0;
                         for (auto& n : pattern->notes)
                             maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
                         if (maxNoteEnd > 0)
-                            patternLength = 960 * ((maxNoteEnd + 959) / 960);
+                            patternLength = maxNoteEnd;
                             
                         for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
                         {
@@ -711,8 +708,13 @@ void ChordcraftAudioProcessor::playChordPreview (const ChordBlock& cb, const std
         for (int laneIdx = 0; laneIdx < (int) lanes.size(); ++laneIdx)
         {
             auto& lane = lanes[laneIdx];
-
-            // Determine channel before skipping
+            if (! lane.enabled || lane.patternId.isEmpty())
+                continue;
+                
+            auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
+            if (pattern == nullptr)
+                continue;
+                
             int channel = 0;
             if (lane.isDrums)
             {
@@ -724,24 +726,13 @@ void ChordcraftAudioProcessor::playChordPreview (const ChordBlock& cb, const std
                 channel = melodicCount++;
                 if (channel > 15) channel = 15;
             }
-
-            if (! lane.enabled || lane.patternId.isEmpty())
-                continue;
-                
-            auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-            if (pattern == nullptr)
-                continue;
-                
-            // Grid-aligned pattern lengths    
+            
             int patternLength = 3840;
             int maxNoteEnd = 0;
             for (auto& n : pattern->notes)
                 maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
-                
             if (maxNoteEnd > 0)
-            {
-                patternLength = 960 * ((maxNoteEnd + 959) / 960);
-            }
+                patternLength = maxNoteEnd;
                 
             for (int offset = 0; offset < durationTicks; offset += patternLength)
             {
