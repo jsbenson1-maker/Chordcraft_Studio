@@ -123,10 +123,10 @@ struct SongSection
     std::vector<TrackSettings> tracks;
 };
 
-class ChordArrangement : public juce::ChangeBroadcaster
+class ChordArrangement : public juce::ChangeBroadcaster, public juce::Timer
 {
-public: juce::Timer
-void timerCallback() override
+public: 
+    void timerCallback() override
     {
         if (audioProcessor != nullptr && audioProcessor->isEnginePlaying())
         {
