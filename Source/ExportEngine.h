@@ -23,9 +23,8 @@ inline juce::File getExportDirectory()
 #endif
 }
 
-inline void shareFileOnAndroid (const juce::File& file)
+inline void shareFileWithOS (const juce::File& file)
 {
-#if JUCE_ANDROID
     juce::Array<juce::URL> files;
     files.add (juce::URL (file));
     
@@ -36,14 +35,13 @@ inline void shareFileOnAndroid (const juce::File& file)
         {
             if (! success)
             {
-                DBG ("Android sharing failed: " + error);
+                DBG ("OS sharing failed: " + error);
             }
             juce::MessageManager::callAsync ([]() {
                 activeShareBox.reset();
             });
         })
     );
-#endif
 }
 
 inline juce::String wrapPath (const juce::String& path)
@@ -259,9 +257,7 @@ inline void performMidiExport (const ChordArrangement& arrangement)
                 "Multitrack MIDI file saved to Documents:\n\n" + wrapPath (midFile.getFullPathName()),
                 "OK"
             );
-            #if JUCE_ANDROID
-            shareFileOnAndroid (midFile);
-            #endif
+            shareFileWithOS (midFile);
         });
     }
     else
@@ -583,9 +579,7 @@ public:
                     "Rendered 24-bit WAV file saved to Documents:\n\n" + wrapPath (wavFile.getFullPathName()),
                     "OK"
                 );
-                #if JUCE_ANDROID
-                shareFileOnAndroid (wavFile);
-                #endif
+                shareFileWithOS (wavFile);
             });
         }
     }
@@ -1350,9 +1344,7 @@ inline void performSheetMusicExport (const ChordArrangement& arrangement,
                 "Sheet Music PDF document saved to Documents:\n\n" + wrapPath (pdfFile.getFullPathName()),
                 "OK"
             );
-            #if JUCE_ANDROID
-            shareFileOnAndroid (pdfFile);
-            #endif
+            shareFileWithOS (pdfFile);
         });
     }
     else

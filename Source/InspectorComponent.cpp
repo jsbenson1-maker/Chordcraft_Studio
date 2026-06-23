@@ -923,13 +923,18 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
     if (playButtonBounds.contains (pos))
     {
         bool currentPlayState = arrangement.isPlaying();
+        if (!currentPlayState)
+        {
+            // FIX: Rebuild full arrangement to overwrite the 4-beat preview buffer!
+            arrangement.sendProgressionToAudioThread(); 
+        }
         arrangement.setPlayState (! currentPlayState);
         repaint();
         return;
     }
     else if (bpmBounds.contains (pos))
     {
-        initialDragBpm = arrangement.getBpm();
+        // FIX: Removed initialDragBpm. Button now exclusively waits for the mouseUp tap popup.
         return;
     }
     else if (mixerBounds.contains (pos))
@@ -1832,14 +1837,10 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
 
 void InspectorComponent::mouseDrag (const juce::MouseEvent& event)
 {
-    if (bpmBounds.contains (event.getMouseDownPosition()))
-    {
-        int dragDistanceY = event.getMouseDownPosition().y - event.getPosition().y;
-        float newBpm = initialDragBpm + static_cast<float> (dragDistanceY) * 0.5f;
-        newBpm = juce::jlimit (20.0f, 300.0f, newBpm);
-        arrangement.setTempo (newBpm);
-    }
-    else if (isDraggingRoots)
+    // FIX: Removed the buggy BPM drag block entirely. 
+    // The tap-tempo popup in mouseUp handles this now.
+
+    if (isDraggingRoots)
     {
         rootsScrollOffset = rootsScrollOffsetAtDragStart + event.getOffsetFromDragStart().y;
         constrainScrollOffsets();

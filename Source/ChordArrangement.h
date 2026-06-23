@@ -125,7 +125,34 @@ struct SongSection
 
 class ChordArrangement : public juce::ChangeBroadcaster
 {
-public:
+public: juce::Timer
+void timerCallback() override
+    {
+        if (audioProcessor != nullptr && audioProcessor->isEnginePlaying())
+        {
+            // Sync the UI's active section with the Audio Thread's current loop
+            int engineSectionIdx = audioProcessor->getPlayingSectionIndex();
+            
+            if (engineSectionIdx >= 0 && engineSectionIdx != activeSectionIndex)
+            {
+                // We crossed a section boundary! Save current UI edits and flip tabs
+                saveActiveSection();
+                
+                activeSectionIndex = engineSectionIdx;
+                auto& sec = sections[activeSectionIndex];
+                
+                chords.clear();
+                for (auto& cb : sec.blocks)
+                    chords.add (cb);
+                    
+                trackLanes = sec.tracks;
+                bpm = (float) sec.bpm;
+                activeKey = sec.currentKey;
+                
+                notifyChanges(); // Forces the timeline and tabs to redraw instantly
+            }
+        }
+    }
     ChordArrangement()
     {
         // Initial default section
@@ -181,6 +208,9 @@ public:
             sendProgressionToAudioThread();
             setTempo (bpm);
         }
+        // Add this to the very bottom of the ChordArrangement() constructor
+        startTimer (50); // Poll audio thread every 50ms for section boundary changes
+    
     }
 
     // Active public members kept in sync for backward compatibility
@@ -421,4 +451,4 @@ public:
 private:
     ChordcraftAudioProcessor* audioProcessor = nullptr;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChordArrangement)
-};
+};
