@@ -125,34 +125,7 @@ struct SongSection
 
 class ChordArrangement : public juce::ChangeBroadcaster, public juce::Timer
 {
-public: 
-    void timerCallback() override
-    {
-        if (audioProcessor != nullptr && audioProcessor->isEnginePlaying())
-        {
-            // Sync the UI's active section with the Audio Thread's current loop
-            int engineSectionIdx = audioProcessor->getPlayingSectionIndex();
-            
-            if (engineSectionIdx >= 0 && engineSectionIdx != activeSectionIndex)
-            {
-                // We crossed a section boundary! Save current UI edits and flip tabs
-                saveActiveSection();
-                
-                activeSectionIndex = engineSectionIdx;
-                auto& sec = sections[activeSectionIndex];
-                
-                chords.clear();
-                for (auto& cb : sec.blocks)
-                    chords.add (cb);
-                    
-                trackLanes = sec.tracks;
-                bpm = (float) sec.bpm;
-                activeKey = sec.currentKey;
-                
-                notifyChanges(); // Forces the timeline and tabs to redraw instantly
-            }
-        }
-    }
+public:
     ChordArrangement()
     {
         // Initial default section
@@ -197,6 +170,64 @@ public:
         trackLanes = defaultSection.tracks;
         bpm = 120.0f;
         activeKey = "C Maj";
+        
+        startTimerHz (30);
+    }
+    
+    ~ChordArrangement() override
+    {
+        stopTimer();
+    }
+    
+    // Core engine trackers
+    bool isMainSongPlaying = false;
+    bool wasPreviewing = false;
+
+    void timerCallback() override
+    {
+        if (audioProcessor != nullptr)
+        {
+            bool enginePlaying = audioProcessor->isEnginePlaying();
+            bool isCurrentlyPreviewing = (!isMainSongPlaying && enginePlaying);
+            
+            // FIX 1: Auto-restore main song when preview finishes naturally
+            if (wasPreviewing && !enginePlaying)
+            {
+                wasPreviewing = false;
+                sendProgressionToAudioThread();
+                return; 
+            }
+
+            wasPreviewing = isCurrentlyPreviewing;
+
+            // FIX 2: Only track visual sections if the MAIN song is playing (Ignores Preview's track 0!)
+            if (isMainSongPlaying && enginePlaying)
+            {
+                int currentPbIdx = audioProcessor->playingSectionIndexAtomic.load();
+                if (currentPbIdx != lastPlaybackSectionIndex)
+                {
+                    lastPlaybackSectionIndex = currentPbIdx;
+                    if (currentPbIdx >= 0 && currentPbIdx < (int)playbackToSongSectionMap.size())
+                    {
+                        int songSecIdx = playbackToSongSectionMap[currentPbIdx];
+                        if (songSecIdx != activeSectionIndex)
+                        {
+                            activeSectionIndex = songSecIdx;
+                            
+                            // Silently load visual data without triggering an audio rebuild
+                            auto& sec = sections[activeSectionIndex];
+                            chords.clear();
+                            for (auto& cb : sec.blocks) chords.add (cb);
+                            trackLanes = sec.tracks;
+                            bpm = (float) sec.bpm;
+                            activeKey = sec.currentKey;
+                            
+                            notifyChanges();
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Bind the audio processor to enable UI control of the audio thread
@@ -208,9 +239,6 @@ public:
             sendProgressionToAudioThread();
             setTempo (bpm);
         }
-        // Add this to the very bottom of the ChordArrangement() constructor
-        startTimer (50); // Poll audio thread every 50ms for section boundary changes
-    
     }
 
     // Active public members kept in sync for backward compatibility
@@ -223,6 +251,9 @@ public:
     // Section management
     std::vector<SongSection> sections;
     int activeSectionIndex = 0;
+    
+    int lastPlaybackSectionIndex = -1;
+    std::vector<int> playbackToSongSectionMap;
 
     void saveActiveSection()
     {
@@ -389,19 +420,27 @@ public:
 
     void setPlayState (bool play)
     {
+        isMainSongPlaying = play;
         if (audioProcessor != nullptr)
         {
             if (play)
+            {
+                wasPreviewing = false; // Reset preview flag just in case
                 sendProgressionToAudioThread();
+            }
+            else
+            {
+                lastPlaybackSectionIndex = -1; // Reset tracker so it flips correctly on next play
+            }
+                
             audioProcessor->setPlayState (play);
         }
     }
 
     bool isPlaying() const
     {
-        if (audioProcessor != nullptr)
-            return audioProcessor->isEnginePlaying();
-        return false;
+        // Enforce the strict UI binding to the Main Song state
+        return isMainSongPlaying; 
     }
 
     void setTempo (float newBpm, bool applyGlobally = false)
@@ -429,6 +468,20 @@ public:
     void sendProgressionToAudioThread()
     {
         saveActiveSection();
+        
+        // Map audio engine sequential loops back to UI visual tabs
+        playbackToSongSectionMap.clear();
+        for (int s = 0; s < (int) sections.size(); ++s)
+        {
+            auto& sec = sections[s];
+            int secDurationTicks = 0;
+            for (auto& cb : sec.blocks) secDurationTicks += cb.durationBeats * 960;
+            if (secDurationTicks <= 0) continue;
+            
+            for (int loop = 0; loop < sec.loopCount; ++loop)
+                playbackToSongSectionMap.push_back (s);
+        }
+        
         if (audioProcessor != nullptr)
         {
             audioProcessor->sendProgressionToAudioThread (sections, activeSectionIndex);
