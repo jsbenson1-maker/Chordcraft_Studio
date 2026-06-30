@@ -64,6 +64,8 @@ Chordcraft Studio is a professional-grade, cross-platform chord progression desi
   * Click instrument dropdowns to assign any General MIDI instrument (0-127) or select from the pattern dropdown list to assign drum or melodic MIDI patterns.
 * **Dynamic Track Management**:
   * Add new instrumental or drum lanes to the section using `[ + Add Melodic ]` or `[ + Add Drums ]` buttons, or delete them via `[ Remove ]`.
+* **Free Tier Track Limits**:
+  * Restricts free users to a maximum of 4 active melodic tracks and 1 active drum track to protect product value, instantly unlocked via a single upgrade purchase.
 
 ---
 
@@ -97,16 +99,16 @@ Chordcraft Studio is a professional-grade, cross-platform chord progression desi
 
 * **Real-Time USB/Virtual MIDI Device Output**:
   * Scans and hot-plugs all connected MIDI devices in the background every 2 seconds.
-  * Broadcasts polyphonic MIDI note messages in real time on multiple channels matching track lanes (Lanes 1-16 mapped to MIDI channels 1-16), allowing Chordcraft Studio to act as a hardware controller for external DAWs like Ableton, Logic, or Pro Tools.
+  * Broadcasts polyphonic MIDI note messages in real time on multiple channels matching track lanes (Lanes 1-16 mapped to MIDI channels 1-16), allowing Chordcraft Studio to act as a hardware controller for external DAWs like Ableton, Logic, or Pro Tools. *Requires Chordcraft Pro to enable real-time routing (disabled in the Free version).*
 * **Multi-Page Vector-Based PDF Sheet Music Exporter**:
-  * Generates high-fidelity vector PDF sheet music (`Chordcraft_Studio_SheetMusic.pdf`) in the user's `Documents` folder, displaying the section name in the header, with auto-resized metadata fonts.
+  * Generates high-fidelity vector PDF sheet music (`Chordcraft_Studio_SheetMusic.pdf`) in the user's `Documents` folder, displaying the section name in the header, with auto-resized metadata fonts. *Requires Chordcraft Pro.*
   * Prompts the user to choose between "Chords Only" (single page summarizing progression voicing) and "Full Sheet Music".
   * **Full Sheet Music Layout**: Renders separate staff pages for each enabled track in the arrangement, displaying the exact notes triggered by their patterns.
   * **Professional Notation**: Features an 8px staff spacing, proportional noteheads, properly oriented stems, ledger lines, and flat `b` signs in flat keys.
 * **Type 1 Multi-Track MIDI Export**:
-  * Exports detailed MIDI sequences with separate tracks for bass lines, chord voicings, and tempo configurations across all sections.
+  * Exports detailed MIDI sequences with separate tracks for bass lines, chord voicings, and tempo configurations across all sections. *Requires Chordcraft Pro.*
 * **Offline Audio Bounce (WAV)**:
-  * Renders arrangements directly to high-fidelity 24-bit WAV files using an offline background worker thread.
+  * Renders arrangements directly to high-fidelity 16-bit WAV files (standardized to 16-bit depth to ensure playback and streaming compatibility on cloud storage drives like Google Drive) using an offline background worker thread. *Requires Chordcraft Pro.*
 * **File Cleansing Security**:
   * Invokes `deleteFile()` on the target path to overwrite existing files cleanly and avoid stream conflicts.
 * **Native Android Sharing Sheets**:
@@ -126,3 +128,14 @@ Chordcraft Studio is a professional-grade, cross-platform chord progression desi
   * Triggers tailored vibration patterns (Android Vibrator JNI) during block drag-selections and grid coordinate updates.
 * **Touch-Drag List Scrolling**:
   * Allows smooth flick-scrolling across roots, qualities, and durations lists in the inspector, fully clamped to avoid list clipping.
+
+---
+
+## 7. Freemium Monetization & Licensing Engine
+
+* **Google Play In-App Billing Integration**:
+  * Fully integrated JNI-based Google Play Billing client (`com.android.billingclient:billing:6.1.0`) to handle secure in-app purchases (`chordcraft_pro_unlock`) and lifetime license synchronization.
+* **AdMob Interstitial Ad System**:
+  * Shows high-impact AdMob interstitial ads on startup for Free tier users. Uses a smart 500ms delayed trigger to ensure UI rendering is complete, along with an asynchronous caching listener that triggers the ad immediately once the load completes.
+* **Dismissible Paywall System**:
+  * All premium exports and track limit warnings use standard JUCE `OkCancelBox` dialogs, allowing free users to easily dismiss notifications and continue working on their projects, or tap to trigger the Google Play Billing bottom sheet.

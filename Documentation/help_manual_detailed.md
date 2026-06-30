@@ -17,6 +17,7 @@ Welcome to the Chordcraft Studio User Manual. This guide provides comprehensive,
 10. **Help Manual Paging & Overlays**
 11. **Mobile Gestures, Ergonomics, & Dismissals**
 12. **Real-Time Audio Engine & DSP Stabilization (Thread Safety, Pitch Clamping, & Soft Clipping)**
+13. **Freemium Licensing, Google Play Billing & AdMob Ads**
 
 ---
 
@@ -151,6 +152,8 @@ The **Track Mixer** is a full-screen overlay component bound to screen edges, fe
 * **Dynamic Track Management**:
   * **[ + Add Melodic ] / [ + Add Drums ]**: Add new instrumental or drum lanes to the section.
   * **[ Remove ]**: Delete the corresponding track row.
+* **Free Tier Track Limits**:
+  * In the free version, you are restricted to a maximum of 4 active melodic tracks and 1 active drum track. Trying to exceed this limit by adding or enabling extra tracks will display a dismissible upgrade dialog prompting you to unlock Chordcraft Pro.
 
 ---
 
@@ -168,6 +171,9 @@ Chordcraft Studio can act as an external sequencer controlling hardware synths o
 5. **Channel Mappings**: Chordcraft Studio broadcasts separate MIDI channels for different tracks (Lanes 1 to 16 map to MIDI channels 1 to 16). Arm the corresponding channels in your DAW to record separate tracks.
 6. **Auditioning**: Clicking chord blocks or playing the timeline will transmit the MIDI notes in real-time.
 
+> [!NOTE]
+> **Free Tier Limitation**: Real-time MIDI device routing is a premium feature. On the free version, background scanning and MIDI note output are disabled until you purchase Chordcraft Pro.
+
 ---
 
 ## 9. Offline Bounces & Exporters
@@ -183,12 +189,15 @@ Chordcraft Studio can act as an external sequencer controlling hardware synths o
   * Generates a Type 1 multi-track MIDI file with separate tracks for the bass notes and chord voicings across all sections, following section loop counts.
 * **Offline Audio Bounce (WAV)**:
   * Click **MENU -> EXPORT -> Export WAV Audio (.wav)**.
-  * Spawns an offline renderer that bounces your arrangement sequentially across all sections to a 24-bit WAV file on a background thread.
+  * Spawns an offline renderer that bounces your arrangement sequentially across all sections to a 16-bit WAV file (standardized to 16-bit depth to ensure playback and streaming compatibility on cloud storage drives like Google Drive) on a background thread.
   * Applies `std::tanh` soft-clipping to prevent digital distortion.
 * **File Cleansing Security**:
   * Before generating PDF, MIDI, or WAV files, the exporter invokes `deleteFile()` on the target path to overwrite existing files cleanly and avoid stream conflicts.
 * **Native Android Sharing Integration**:
   * On Android, exporting PDF, MIDI, or WAV files automatically triggers the native Android sharing chooser.
+
+> [!NOTE]
+> **Free Tier Export Locks**: Bouncing high-fidelity WAV audio, exporting Type 1 multitrack MIDI sequences, and compiling vector PDF sheet music require upgrading to Chordcraft Pro. Attempting to trigger these exporters while on the Free tier will present a dismissible popup window allowing you to upgrade via Google Play.
 
 ---
 
@@ -222,3 +231,20 @@ To ensure low-latency performance and professional sound, the audio engine runs 
 * **MIDI Pitch Safety Clamping**: All melodic notes are clamped to the physical range `[28, 108]` (E1 to C8) using octave transpositions.
 * **Playhead Wrapping**: Active sequencer playhead position is mathematically wrapped against the new loop duration using `std::fmod` when loop lengths change, preventing timing drift or hangs.
 * **Auto-Composer DSP Syncing**: Generative composition callbacks update track properties and sync presets directly to the audio thread.
+
+---
+
+## 13. Freemium Licensing, Google Play Billing & AdMob Ads
+
+Chordcraft Studio uses a Freemium monetization architecture.
+
+### Free Tier Limits
+* **Mixer Track Ceiling**: Free users are limited to a maximum of 4 active melodic tracks and 1 active drum track.
+* **Export Restrictions**: Exporting arrangements to WAV audio, MIDI sequences, and vector PDF sheet music is locked behind a license verification.
+* **MIDI Output Blocking**: Real-time USB/Virtual MIDI device routing is disabled.
+* **Startup Interstitial Ads**: A single AdMob interstitial advertisement is loaded and shown shortly after the app opens (utilizing a 500ms delayed trigger to ensure UI layout stabilization and prevent JNI conflicts on load).
+
+### Chordcraft Pro Lifetime Unlock
+* **Secure Purchase Flow**: Users can purchase the **Chordcraft Pro** lifetime unlock (`chordcraft_pro_unlock`) directly inside the app. This utilizes the official Google Play Billing client SDK for secure, frictionless checkout.
+* **Instant Removal**: Purchasing Pro instantly removes all track limits (enabling up to 16 tracks), activates real-time MIDI device routing, unlocks all WAV/MIDI/PDF export engines, and permanently removes all advertisements.
+* **Dismissible Alerts**: All premium warnings and purchase prompts are presented using standard `showOkCancelBox` dialogs, ensuring free users are never locked out of the app and can dismiss upgrade menus easily.
