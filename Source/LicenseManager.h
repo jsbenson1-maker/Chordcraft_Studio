@@ -46,7 +46,10 @@ private:
     {
         if (auto* env = juce::getEnv())
         {
-            auto activity = juce::getAppContext();
+            auto activity = juce::getMainActivity();
+            if (activity.get() == nullptr)
+                activity = juce::getCurrentActivity();
+
             if (activity.get() != nullptr)
             {
                 jclass clazz = env->GetObjectClass(activity.get());
