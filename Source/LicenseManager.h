@@ -1,8 +1,5 @@
 #pragma once
 #include <JuceHeader.h>
-#if JUCE_ANDROID
-#include <juce_core/native/juce_android_JNIHelpers.h>
-#endif
 
 class LicenseManager : public juce::ChangeBroadcaster
 {
