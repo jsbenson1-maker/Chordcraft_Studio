@@ -7,6 +7,24 @@
 //==============================================================================
 namespace
 {
+    juce::Array<int> getScalePitchClasses (const juce::String& activeKey);
+
+    juce::StringArray getDiatonicRootsForKey (const juce::String& activeKey)
+    {
+        juce::StringArray flatNotes = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+        juce::StringArray sharpNotes = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+
+        juce::String keyRoot = activeKey.upToFirstOccurrenceOf(" ", false, false).trim();
+        bool useFlats = keyRoot.contains("b") || keyRoot == "F" || (activeKey.contains("Min") && (keyRoot == "D" || keyRoot == "G" || keyRoot == "C"));
+
+        juce::Array<int> pitchClasses = getScalePitchClasses (activeKey);
+        juce::StringArray roots;
+        for (int pc : pitchClasses) {
+            roots.add (useFlats ? flatNotes[pc % 12] : sharpNotes[pc % 12]);
+        }
+        return roots;
+    }
+
     juce::String getBaseRootName (const juce::String& dbRoot)
     {
         if (dbRoot == "C") return "C";
@@ -756,7 +774,7 @@ void InspectorComponent::paint (juce::Graphics& g)
     g.reduceClipRegion(gridArea); 
 
     // Draw roots and durations using decoupled offsets
-    drawGridCol (rootCol, {"C", "D", "E", "F", "G", "A", "B"}, juce::Colour(0xff94a3b8), false, rootsScrollOffset); 
+    drawGridCol (rootCol, getDiatonicRootsForKey (arrangement.activeKey), juce::Colour(0xff94a3b8), false, rootsScrollOffset); 
     drawGridCol (durationCol, allDurations, juce::Colour(0xff8b5cf6), false, durationsScrollOffset);
 
     // Dynamic qualities list based on category & advice
@@ -1709,12 +1727,11 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
     // Click on Roots Column
     if (rootCol.contains (pos))
     {
-        juce::StringArray rootsList = {"C", "D", "E", "F", "G", "A", "B"};
+        juce::StringArray rootsList = getDiatonicRootsForKey (arrangement.activeKey);
         int idx = (pos.y - rootCol.getY() - rootsScrollOffset) / cellHeight;
         if (idx >= 0 && idx < rootsList.size())
         {
-            int acc = getAccidentalIndex (selectedChord->root);
-            selectedChord->root = combineRootAndAccidental (rootsList[idx], acc);
+            selectedChord->root = rootsList[idx];
             selectedChord->name = selectedChord->root + " " + selectedChord->quality;
             arrangement.sendProgressionToAudioThread();
             arrangement.notifyChanges();

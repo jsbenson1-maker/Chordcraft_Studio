@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="sIQKec" name="ChordcraftStudio" projectType="guiapp" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" icon="iconPng">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" icon="iconPng"
+              bundleIdentifier="com.groovespeakstudios.chordcraftstudio">
   <MAINGROUP id="p5BntU" name="ChordcraftStudio">
     <GROUP id="{4DFB4480-8842-33CF-76D7-9C2CF086D614}" name="resources">
       <FILE id="iconPng" name="CCS.png" compile="0" resource="1" file="Resources/CCS.png"/>
@@ -26,6 +27,7 @@
       <FILE id="eeH001" name="ExportEngine.h" compile="0" resource="0" file="Source/ExportEngine.h"/>
       <FILE id="acH001" name="AiCoreManager.h" compile="0" resource="0" file="Source/AiCoreManager.h"/>
       <FILE id="leExlC" name="ThemeManager.h" compile="0" resource="0" file="Source/ThemeManager.h"/>
+      <FILE id="licMgr" name="LicenseManager.h" compile="0" resource="0" file="Source/LicenseManager.h"/>
       <FILE id="ChL57X" name="ChordArrangement.h" compile="0" resource="0"
             file="Source/ChordArrangement.h"/>
       <FILE id="Qwup7O" name="InspectorComponent.cpp" compile="1" resource="0"
@@ -66,7 +68,7 @@
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
   </MODULES>
-  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_USE_WINRT_MIDI="1"/>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_USE_WINRT_MIDI="1" JUCE_CORE_INCLUDE_JNI_HELPERS="1"/>
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022" bigIcon="iconPng" smallIcon="iconPng">
       <CONFIGURATIONS>
@@ -110,10 +112,11 @@
         <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>
       </MODULEPATHS>
     </VS2026>
-    <ANDROIDSTUDIO targetFolder="Builds/Android" bigIcon="iconPng" smallIcon="iconPng">
+    <ANDROIDSTUDIO targetFolder="Builds/Android" bigIcon="iconPng" smallIcon="iconPng"
+                   androidEnableContentSharing="1" androidExtraApplicationAttributes="android:allowAudioPlaybackCapture=&quot;true&quot;">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug"/>
-        <CONFIGURATION isDebug="0" name="Release"/>
+        <CONFIGURATION isDebug="1" name="Debug" defines="JUCE_CORE_INCLUDE_JNI_HELPERS=1"/>
+        <CONFIGURATION isDebug="0" name="Release" defines="JUCE_CORE_INCLUDE_JNI_HELPERS=1"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_animation" path="../juce-8.0.13-windows/JUCE/modules"/>

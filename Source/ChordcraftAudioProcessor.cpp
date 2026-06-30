@@ -174,6 +174,7 @@ void ChordcraftAudioProcessor::setChannelProgram (int channel, int programNumber
 
 void ChordcraftAudioProcessor::sendProgressionToAudioThread (const std::vector<SongSection>& sections, int activeSectionIndex)
 {
+    isSingleShotPreview.store (false);
     {
         const juce::ScopedLock sl (stagingLock);
         
@@ -545,6 +546,10 @@ void ChordcraftAudioProcessor::runSequencer (int numSamples, juce::MidiBuffer& m
                     {
                         tsf_channel_set_presetnumber (tsfInstance, ch, currentSec.programs[ch], (ch == 9 ? 1 : 0));
                         tsf_channel_set_volume (tsfInstance, ch, currentSec.volumes[ch]);
+                        
+                        // Expose states to the buffer so the MIDI Export captures instruments and levels
+                        midiMessages.addEvent (juce::MidiMessage::programChange (ch + 1, currentSec.programs[ch]), sampleOffsetWithinBlock);
+                        midiMessages.addEvent (juce::MidiMessage::controllerEvent (ch + 1, 7, static_cast<int> (currentSec.volumes[ch] * 127.0f)), sampleOffsetWithinBlock);
                     }
                 }
             }

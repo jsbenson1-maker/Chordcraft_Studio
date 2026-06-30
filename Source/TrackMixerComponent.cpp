@@ -395,7 +395,7 @@ void TrackMixerComponent::MixerListContent::TrackRow::choosePattern()
         {
             for (auto& fam : def->compatibleFamilies)
             {
-                if (fam == activeFamily) { compatiblePatterns.push_back (def); break; }
+                if (isFamilyCompatible (fam, activeFamily)) { compatiblePatterns.push_back (def); break; }
             }
         }
     }
@@ -464,13 +464,13 @@ juce::String TrackMixerComponent::MixerListContent::TrackRow::getGMFamilyName (i
         case 3:  return "Guitar";
         case 4:  return "Bass";
         case 5:  return "Strings";
-        case 6:  return "Ensemble";
+        case 6:  return "Strings";
         case 7:  return "Brass";
         case 8:  return "Reed";
         case 9:  return "Pipe";
         case 10: return "Synth Lead";
         case 11: return "Synth Pad";
-        case 12: return "Synth Effects";
+        case 12: return "Synth Pad";
         case 13: return "Ethnic";
         case 14: return "Percussive";
         case 15: return "Sound Effects";

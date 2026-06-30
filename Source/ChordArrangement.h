@@ -194,7 +194,22 @@ public:
             if (wasPreviewing && !enginePlaying)
             {
                 wasPreviewing = false;
+                
+                // Perfectly restore UI to currently selected tab
+                if (activeSectionIndex >= 0 && activeSectionIndex < (int)sections.size())
+                {
+                    auto& sec = sections[activeSectionIndex];
+                    chords.clear();
+                    for (auto& cb : sec.blocks) chords.add (cb);
+                    trackLanes = sec.tracks;
+                    bpm = (float) sec.bpm;
+                    activeKey = sec.currentKey;
+                }
+                
+                lastPlaybackSectionIndex = -1; // zero the playhead
+                
                 sendProgressionToAudioThread();
+                notifyChanges();
                 return; 
             }
 
@@ -203,7 +218,7 @@ public:
             // FIX 2: Only track visual sections if the MAIN song is playing (Ignores Preview's track 0!)
             if (isMainSongPlaying && enginePlaying)
             {
-                int currentPbIdx = audioProcessor->playingSectionIndexAtomic.load();
+                int currentPbIdx = audioProcessor->getPlayingSectionIndex();
                 if (currentPbIdx != lastPlaybackSectionIndex)
                 {
                     lastPlaybackSectionIndex = currentPbIdx;
@@ -434,6 +449,15 @@ public:
             }
                 
             audioProcessor->setPlayState (play);
+        }
+    }
+
+    void triggerPreview (const ChordBlock& cb, const std::vector<TrackSettings>& lanes)
+    {
+        isMainSongPlaying = false;
+        if (audioProcessor != nullptr)
+        {
+            audioProcessor->playChordPreview (cb, lanes);
         }
     }
 

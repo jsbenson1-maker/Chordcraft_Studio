@@ -56,12 +56,3 @@ Welcome, Antigravity instance. You are picking up the development of **Chordcraf
   - Manages system theme styling. Extracts Material You wallpaper accents (`system_accent1_500` / `800`) on Android to theme the UI.
 
 ---
-
-## Prompt to start the next Antigravity Instance
-Copy and paste the following prompt when initializing your next Antigravity developer session:
-
-```text
-Initialize development on Chordcraft Studio. I have checked out the repository. Please review the project structure, specifically [DEVELOPER_PROMPT.md](file:///c:/Users/user/Downloads/Chordcraft_Studio-master/DEVELOPER_PROMPT.md) and [.agents/AGENTS.md](file:///c:/Users/user/Downloads/Chordcraft_Studio-master/.agents/AGENTS.md) for full context. 
-
-Verify that the latest fixes compile on Visual Studio using MSBuild targeting x64 Release configuration. Once verified, ask me how you should proceed.
-```

@@ -86,6 +86,53 @@ const PatternDefinition* PatternDatabase::getPatternById (const std::string& id)
     return nullptr;
 }
 
+bool isFamilyCompatible (const juce::String& fam, const juce::String& activeFamily)
+{
+    if (fam.equalsIgnoreCase (activeFamily))
+        return true;
+        
+    if (activeFamily.equalsIgnoreCase ("Bass") && fam.containsIgnoreCase ("Bass"))
+        return true;
+        
+    if (activeFamily.equalsIgnoreCase ("Strings") || activeFamily.equalsIgnoreCase ("Ensemble"))
+    {
+        juce::StringArray str = { "Violin", "Viola", "Cello", "Contrabass", "Strings", "Double Bass" };
+        for (auto& s : str)
+            if (fam.equalsIgnoreCase (s)) return true;
+    }
+    
+    if (activeFamily.equalsIgnoreCase ("Reed"))
+    {
+        juce::StringArray reed = { "Oboe", "Clarinet", "Bassoon", "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax", "English Horn" };
+        for (auto& r : reed)
+            if (fam.equalsIgnoreCase (r)) return true;
+    }
+    
+    if (activeFamily.equalsIgnoreCase ("Pipe"))
+    {
+        juce::StringArray pipe = { "Flute", "Piccolo", "Recorder", "Pan Flute", "Ocarina", "Shakuhachi", "Whistle" };
+        for (auto& p : pipe)
+            if (fam.equalsIgnoreCase (p)) return true;
+    }
+    
+    if (activeFamily.equalsIgnoreCase ("Brass"))
+    {
+        juce::StringArray brass = { "Trumpet", "Trombone", "Tuba", "Muted Trumpet", "French Horn", "Brass Section" };
+        for (auto& b : brass)
+            if (fam.equalsIgnoreCase (b)) return true;
+    }
+    
+    if ((activeFamily.equalsIgnoreCase ("Synth Lead") || activeFamily.equalsIgnoreCase ("Synth Effects") || activeFamily.equalsIgnoreCase ("Synth FX"))
+        && (fam.containsIgnoreCase ("Lead") || fam.containsIgnoreCase ("Synth Lead")))
+        return true;
+        
+    if ((activeFamily.equalsIgnoreCase ("Synth Pad") || activeFamily.equalsIgnoreCase ("Synth Effects") || activeFamily.equalsIgnoreCase ("Synth FX"))
+        && (fam.containsIgnoreCase ("Pad") || fam.containsIgnoreCase ("Synth Pad")))
+        return true;
+        
+    return false;
+}
+
 juce::StringArray PatternDatabase::getPatternIdsForInstrument (const juce::String& instrument) const
 {
     juce::StringArray result;
@@ -96,7 +143,7 @@ juce::StringArray PatternDatabase::getPatternIdsForInstrument (const juce::Strin
         {
             for (auto& fam : def->compatibleFamilies)
             {
-                if (fam.equalsIgnoreCase (instrument))
+                if (isFamilyCompatible (fam, instrument))
                 {
                     result.add (def->id);
                     break;

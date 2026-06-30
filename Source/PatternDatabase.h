@@ -25,6 +25,8 @@ struct PatternDefinition
     std::vector<juce::String> compatibleFamilies;
 };
 
+bool isFamilyCompatible (const juce::String& fam, const juce::String& activeFamily);
+
 class PatternDatabase
 {
 public:

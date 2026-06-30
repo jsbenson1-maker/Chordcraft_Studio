@@ -12,7 +12,7 @@ namespace BinaryData
     const int            CCS_pngSize = 8643;
 
     extern const char*   patterns_master_json;
-    const int            patterns_master_jsonSize = 1906349;
+    const int            patterns_master_jsonSize = 1588106;
 
     extern const char*   chords_json;
     const int            chords_jsonSize = 470510;

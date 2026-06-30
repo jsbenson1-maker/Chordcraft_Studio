@@ -5,6 +5,7 @@
 #include "ChordDatabase.h"
 #include "PatternDatabase.h"
 #include "ChordArrangement.h"
+#include "ChordcraftAudioProcessor.h"
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -13,7 +14,6 @@
 #include <sstream>
 #include <map>
 
-// Helper to get the export directory (Documents folder)
 inline juce::File getExportDirectory()
 {
 #if JUCE_ANDROID || JUCE_IOS
@@ -23,17 +23,33 @@ inline juce::File getExportDirectory()
 #endif
 }
 
-// Unified native OS share trigger
-inline void triggerOSShareSheet (const juce::File& file)
+inline void saveExportedFile (const juce::File& generatedFile)
 {
-    juce::Array<juce::URL> urls;
-    urls.add (juce::URL (file));
-    
-    juce::ContentSharer::getInstance()->shareFiles (urls, 
-        [](bool success, const juce::String& error) {
-            if (!success && error.isNotEmpty())
-                juce::Logger::writeToLog ("OS Sharing failed: " + error);
+    juce::MessageManager::callAsync ([generatedFile]() {
+        if (! generatedFile.existsAsFile()) return;
+
+        static std::unique_ptr<juce::FileChooser> fc;
+        fc = std::make_unique<juce::FileChooser> (
+            "Save Export", 
+            juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(generatedFile.getFileName()), 
+            "*" + generatedFile.getFileExtension()
+        );
+
+        auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
+        
+        fc->launchAsync (flags, [generatedFile] (const juce::FileChooser& chooser) {
+            juce::URL targetURL = chooser.getURLResult();
+            if (! targetURL.isEmpty())
+            {
+                if (std::unique_ptr<juce::OutputStream> out = targetURL.createOutputStream())
+                {
+                    juce::FileInputStream in (generatedFile);
+                    out->writeFromInputStream (in, -1);
+                }
+            }
+            fc.reset();
         });
+    });
 }
 
 inline juce::String wrapPath (const juce::String& path)
@@ -87,388 +103,141 @@ inline juce::String getGMInstrumentName (int programNum)
     return "Unknown Instrument";
 }
 
-// Multitrack MIDI Export (Type 1)
-inline void performMidiExport (const ChordArrangement& arrangement)
-{
-    juce::MidiMessageSequence track0;
-    float firstBpm = 120.0f;
-    if (! arrangement.sections.empty())
-        firstBpm = (float) arrangement.sections[0].bpm;
-
-    track0.addEvent (juce::MidiMessage::tempoMetaEvent (static_cast<int> (60000000.0 / firstBpm)), 0);
-    track0.addEvent (juce::MidiMessage::timeSignatureMetaEvent (4, 4), 0);
-    track0.addEvent (juce::MidiMessage::textMetaEvent (3, "Tempo/Meta"), 0);
-
-    juce::MidiFile midiFile;
-    midiFile.setTicksPerQuarterNote (960);
-    midiFile.addTrack (track0);
-
-    const int ticksPerQuarterNote = 960;
-    juce::MidiMessageSequence channelTracks[16];
-
-    int currentStartTick = 0;
-    for (auto& sec : arrangement.sections)
-    {
-        int secDurationTicks = 0;
-        for (auto& cb : sec.blocks)
-            secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
-        if (secDurationTicks <= 0) continue;
-
-        for (int loop = 0; loop < sec.loopCount; ++loop)
-        {
-            track0.addEvent (juce::MidiMessage::tempoMetaEvent (static_cast<int> (60000000.0 / sec.bpm)), currentStartTick);
-
-            int melodicCount = 0;
-            for (int i = 0; i < (int) sec.tracks.size(); ++i)
-            {
-                int channel = 0;
-                if (sec.tracks[i].isDrums)
-                {
-                    channel = 9;
-                }
-                else
-                {
-                    if (melodicCount == 9) melodicCount++;
-                    channel = melodicCount++;
-                    if (channel > 15) channel = 15;
-                }
-                channelTracks[channel].addEvent (juce::MidiMessage::programChange (channel + 1, sec.tracks[i].gmProgramNumber), currentStartTick);
-            }
-
-            int blockStartTick = currentStartTick;
-            for (auto& cb : sec.blocks)
-            {
-                int blockDurationTicks = cb.durationBeats * ticksPerQuarterNote;
-                juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
-
-                melodicCount = 0;
-                for (int laneIdx = 0; laneIdx < (int) sec.tracks.size(); ++laneIdx)
-                {
-                    auto& lane = sec.tracks[laneIdx];
-                    if (! lane.enabled || lane.patternId.isEmpty())
-                        continue;
-                    auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-                    if (pattern == nullptr)
-                        continue;
-
-                    int channel = 0;
-                    if (lane.isDrums)
-                    {
-                        channel = 9;
-                    }
-                    else
-                    {
-                        if (melodicCount == 9) melodicCount++;
-                        channel = melodicCount++;
-                        if (channel > 15) channel = 15;
-                    }
-
-                    int patternLength = 3840;
-                    int maxNoteEnd = 0;
-                    for (auto& n : pattern->notes)
-                        maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
-                    if (maxNoteEnd > 0)
-                        patternLength = maxNoteEnd;
-
-                    for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
-                    {
-                        for (auto& note : pattern->notes)
-                        {
-                            int noteStartInBlock = offset + note.tick;
-                            if (noteStartInBlock >= blockDurationTicks)
-                                continue;
-                            int noteEndInBlock = std::min (blockDurationTicks, noteStartInBlock + note.duration);
-
-                            int absStartTick = blockStartTick + noteStartInBlock;
-                            int absEndTick = blockStartTick + noteEndInBlock;
-
-                            int midiNote = 60;
-                            if (note.drumMidi.has_value())
-                            {
-                                midiNote = note.drumMidi.value();
-                            }
-                            else if (note.degree.has_value())
-                            {
-                                if (! chordMidiNotes.isEmpty())
-                                {
-                                    int degree = note.degree.value();
-                                    int chordSize = chordMidiNotes.size();
-                                    int wrappedDegree = ((degree % chordSize) + chordSize) % chordSize;
-                                    int octaveShift = (int)std::floor((float)degree / chordSize);
-                                    midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
-                                    if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39)
-                                        midiNote -= 24;
-                                }
-                            }
-
-                            if (! note.drumMidi.has_value())
-                            {
-                                while (midiNote < 28)  { midiNote += 12; }
-                                while (midiNote > 108) { midiNote -= 12; }
-                            }
-
-                            channelTracks[channel].addEvent (juce::MidiMessage::noteOn (channel + 1, midiNote, (float) note.velocity / 127.0f), absStartTick);
-                            channelTracks[channel].addEvent (juce::MidiMessage::noteOff (channel + 1, midiNote), absEndTick);
-                        }
-                    }
-                }
-                blockStartTick += blockDurationTicks;
-            }
-            currentStartTick += secDurationTicks;
-        }
-    }
-
-    for (int ch = 0; ch < 16; ++ch)
-    {
-        if (channelTracks[ch].getNumEvents() > 0)
-        {
-            channelTracks[ch].updateMatchedPairs();
-            midiFile.addTrack (channelTracks[ch]);
-        }
-    }
-
-    juce::File midFile = getExportDirectory().getChildFile ("Chordcraft_Studio_Export.mid");
-    if (midFile.existsAsFile()) midFile.deleteFile();
-
-    std::unique_ptr<juce::FileOutputStream> stream = midFile.createOutputStream();
-    if (stream != nullptr && stream->openedOk())
-    {
-        midiFile.writeTo (*stream);
-        stream.reset();
-
-        juce::MessageManager::callAsync ([midFile]() {
-            #if JUCE_ANDROID || JUCE_IOS
-                triggerOSShareSheet (midFile);
-            #else
-                juce::AlertWindow::showMessageBoxAsync (
-                    juce::AlertWindow::InfoIcon,
-                    "MIDI Export Successful",
-                    "Multitrack MIDI file saved to Documents:\n\n" + wrapPath (midFile.getFullPathName()),
-                    "OK"
-                );
-            #endif
-        });
-    }
-}
-
-// Background thread for Offline Audio Rendering (WAV) using TinySoundFont
-class OfflineRenderThread : public juce::Thread
+class FastOfflineBouncer : public juce::Thread
 {
 public:
-    OfflineRenderThread (const ChordArrangement& arr)
-        : juce::Thread ("Offline Render Thread"), sections (arr.sections) {}
+    FastOfflineBouncer (const ChordArrangement& arr, bool exportAsMidi)
+        : juce::Thread ("Fast Offline Bouncer"), sections (arr.sections), isMidi (exportAsMidi) {}
 
-    ~OfflineRenderThread() override { stopThread (4000); }
-
-    struct OfflineEvent {
-        int sampleOffset = 0;
-        int channel = 0;
-        int type = 0;     
-        int param1 = 0;   
-        float paramVolume = 0.6f;
-        int param2 = 0;   
-    };
+    ~FastOfflineBouncer() override { stopThread (4000); }
 
     void run() override
     {
-        juce::File wavFile = getExportDirectory().getChildFile ("Chordcraft_Studio_Export.wav");
-        if (wavFile.existsAsFile()) wavFile.deleteFile();
-
-        tsf* tsfOffline = tsf_load_memory (BinaryData::general_midi_sf2, BinaryData::general_midi_sf2Size);
-        if (tsfOffline == nullptr) return;
-
         double sampleRate = 44100.0;
-        tsf_set_output (tsfOffline, TSF_STEREO_INTERLEAVED, static_cast<int> (sampleRate), 0.0f);
-
-        std::vector<OfflineEvent> offlineEvents;
-        int currentStartTick = 0;
-        double currentStartSample = 0.0;
+        int blockSize = 512;
+        double totalSamples = 0.0;
         const int ticksPerQuarterNote = 960;
 
-        for (auto& sec : sections)
-        {
+        for (auto& sec : sections) {
+            double secSamplesPerTick = sampleRate / (16.0 * sec.bpm);
             int secDurationTicks = 0;
             for (auto& cb : sec.blocks) secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
-            if (secDurationTicks <= 0) continue;
-
-            for (int loop = 0; loop < sec.loopCount; ++loop)
-            {
-                double secSamplesPerTick = sampleRate / (16.0 * sec.bpm);
-                double secStartSample = currentStartSample;
-
-                int melodicCount = 0;
-                for (int i = 0; i < (int) sec.tracks.size(); ++i)
-                {
-                    int channel = (sec.tracks[i].isDrums) ? 9 : (melodicCount == 9 ? ++melodicCount : melodicCount++);
-                    if (channel > 15 && channel != 9) channel = 15;
-
-                    OfflineEvent evProg; evProg.sampleOffset = static_cast<int> (secStartSample); evProg.channel = channel; evProg.type = 0; evProg.param1 = sec.tracks[i].gmProgramNumber;
-                    offlineEvents.push_back (evProg);
-
-                    OfflineEvent evVol; evVol.sampleOffset = static_cast<int> (secStartSample); evVol.channel = channel; evVol.type = 3; evVol.paramVolume = sec.tracks[i].volume;
-                    offlineEvents.push_back (evVol);
-                }
-
-                int blockStartTick = currentStartTick;
-                for (auto& cb : sec.blocks)
-                {
-                    int blockDurationTicks = cb.durationBeats * ticksPerQuarterNote;
-                    juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
-
-                    melodicCount = 0;
-                    for (int laneIdx = 0; laneIdx < (int) sec.tracks.size(); ++laneIdx)
-                    {
-                        auto& lane = sec.tracks[laneIdx];
-                        if (! lane.enabled || lane.patternId.isEmpty()) continue;
-                        auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
-                        if (pattern == nullptr) continue;
-
-                        int channel = (lane.isDrums) ? 9 : (melodicCount == 9 ? ++melodicCount : melodicCount++);
-                        if (channel > 15 && channel != 9) channel = 15;
-
-                        int patternLength = 3840;
-                        int maxNoteEnd = 0;
-                        for (auto& n : pattern->notes) maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
-                        if (maxNoteEnd > 0) patternLength = maxNoteEnd;
-
-                        for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
-                        {
-                            for (auto& note : pattern->notes)
-                            {
-                                int noteStartInBlock = offset + note.tick;
-                                if (noteStartInBlock >= blockDurationTicks) continue;
-                                int noteEndInBlock = std::min (blockDurationTicks, noteStartInBlock + note.duration);
-
-                                int absStartTick = blockStartTick + noteStartInBlock;
-                                int absEndTick = blockStartTick + noteEndInBlock;
-
-                                int midiNote = 60;
-                                if (note.drumMidi.has_value()) midiNote = note.drumMidi.value();
-                                else if (note.degree.has_value() && ! chordMidiNotes.isEmpty())
-                                {
-                                    int chordSize = chordMidiNotes.size();
-                                    int wrappedDegree = ((note.degree.value() % chordSize) + chordSize) % chordSize;
-                                    int octaveShift = (int)std::floor((float)note.degree.value() / chordSize);
-                                    midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
-                                    if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39) midiNote -= 24;
-                                }
-
-                                if (! note.drumMidi.has_value()) {
-                                    while (midiNote < 28) midiNote += 12;
-                                    while (midiNote > 108) midiNote -= 12;
-                                }
-
-                                double startSample = secStartSample + ((absStartTick - currentStartTick) * secSamplesPerTick);
-                                double endSample = secStartSample + ((absEndTick - currentStartTick) * secSamplesPerTick);
-
-                                OfflineEvent noteOn; noteOn.sampleOffset = static_cast<int> (startSample); noteOn.channel = channel; noteOn.type = 1; noteOn.param1 = midiNote; noteOn.param2 = note.velocity;
-                                offlineEvents.push_back (noteOn);
-
-                                OfflineEvent noteOff; noteOff.sampleOffset = static_cast<int> (endSample); noteOff.channel = channel; noteOff.type = 2; noteOff.param1 = midiNote;
-                                offlineEvents.push_back (noteOff);
-                            }
-                        }
-                    }
-                    blockStartTick += blockDurationTicks;
-                }
-                currentStartTick += secDurationTicks;
-                currentStartSample += secDurationTicks * secSamplesPerTick;
-            }
+            totalSamples += (secDurationTicks * secSamplesPerTick) * sec.loopCount;
         }
-        int totalSamples = static_cast<int> (currentStartSample);
+        if (totalSamples <= 0.0) return;
 
-        std::sort (offlineEvents.begin(), offlineEvents.end(), [](const OfflineEvent& a, const OfflineEvent& b) {
-            if (a.sampleOffset == b.sampleOffset) return a.type == 2 && b.type != 2;
-            return a.sampleOffset < b.sampleOffset;
-        });
+        // Spawn a headless clone of the main DSP engine
+        ChordcraftAudioProcessor offlineProcessor;
+        offlineProcessor.prepareToPlay (sampleRate, blockSize);
+        offlineProcessor.sendProgressionToAudioThread (sections, 0);
+        offlineProcessor.setPlayState (true);
 
-        juce::WavAudioFormat wavFormat;
-        auto* rawStream = wavFile.createOutputStream().release();
-        if (rawStream == nullptr) { tsf_close (tsfOffline); return; }
+        juce::File exportFile = getExportDirectory().getChildFile (isMidi ? "Chordcraft_Studio_Export.mid" : "Chordcraft_Studio_Export.wav");
+        if (exportFile.existsAsFile()) exportFile.deleteFile();
 
-        std::unique_ptr<juce::AudioFormatWriter> writer (wavFormat.createWriterFor (rawStream, sampleRate, 2, 24, {}, 0));
-        if (writer == nullptr) { tsf_close (tsfOffline); return; }
+        juce::MidiMessageSequence capturedMidi;
+        std::unique_ptr<juce::AudioFormatWriter> wavWriter;
+        
+        if (! isMidi) {
+            juce::WavAudioFormat wavFormat;
+            if (auto* rawStream = exportFile.createOutputStream().release())
+                wavWriter.reset (wavFormat.createWriterFor (rawStream, sampleRate, 2, 16, {}, 0));
+        }
 
-        const int blockSize = 512;
-        std::vector<float> offlineInterpBuffer (blockSize * 2, 0.0f);
-        juce::AudioBuffer<float> renderBuffer (2, blockSize);
-
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        juce::MidiBuffer midiBuffer;
         int samplesRendered = 0;
-        int nextEventIdx = 0;
 
+        // Uncapped DSP pump
         while (samplesRendered < totalSamples && ! threadShouldExit())
         {
-            int numSamplesThisBlock = juce::jmin (blockSize, totalSamples - samplesRendered);
-            renderBuffer.setSize (2, numSamplesThisBlock, false, false, true);
-            renderBuffer.clear();
+            int numSamplesThisBlock = juce::jmin (blockSize, static_cast<int>(totalSamples) - samplesRendered);
+            buffer.setSize (2, numSamplesThisBlock, false, false, true);
+            buffer.clear();
+            midiBuffer.clear();
 
-            int blockSamplesProcessed = 0;
+            offlineProcessor.processBlock (buffer, midiBuffer);
 
-            while (blockSamplesProcessed < numSamplesThisBlock)
-            {
-                int currentAbsSample = samplesRendered + blockSamplesProcessed;
-
-                while (nextEventIdx < (int) offlineEvents.size() && offlineEvents[nextEventIdx].sampleOffset <= currentAbsSample)
-                {
-                    auto& ev = offlineEvents[nextEventIdx];
-                    if (ev.type == 0) tsf_channel_set_presetnumber (tsfOffline, ev.channel, ev.param1, (ev.channel == 9 ? 1 : 0));
-                    else if (ev.type == 1) tsf_channel_note_on (tsfOffline, ev.channel, ev.param1, (float) ev.param2 / 127.0f);
-                    else if (ev.type == 2) tsf_channel_note_off (tsfOffline, ev.channel, ev.param1);
-                    else if (ev.type == 3) tsf_channel_set_volume (tsfOffline, ev.channel, ev.paramVolume);
-                    nextEventIdx++;
+            if (isMidi) {
+                for (const auto meta : midiBuffer) {
+                    auto msg = meta.getMessage();
+                    msg.setTimeStamp (samplesRendered + meta.samplePosition);
+                    capturedMidi.addEvent (msg);
                 }
-
-                int samplesToRender = numSamplesThisBlock - blockSamplesProcessed;
-                if (nextEventIdx < (int) offlineEvents.size())
-                {
-                    int samplesToNextEvent = offlineEvents[nextEventIdx].sampleOffset - currentAbsSample;
-                    if (samplesToNextEvent > 0 && samplesToNextEvent < samplesToRender) samplesToRender = samplesToNextEvent;
-                }
-
-                if (samplesToRender > 0)
-                {
-                    tsf_render_float (tsfOffline, offlineInterpBuffer.data(), samplesToRender, 0);
-                    auto* left = renderBuffer.getWritePointer (0);
-                    auto* right = renderBuffer.getWritePointer (1);
-                    for (int i = 0; i < samplesToRender; ++i)
-                    {
-                        left[blockSamplesProcessed + i] = std::tanh (offlineInterpBuffer[i * 2]);
-                        right[blockSamplesProcessed + i] = std::tanh (offlineInterpBuffer[i * 2 + 1]);
-                    }
-                    blockSamplesProcessed += samplesToRender;
-                }
+            } else if (wavWriter != nullptr) {
+                wavWriter->writeFromAudioSampleBuffer (buffer, 0, numSamplesThisBlock);
             }
-
-            writer->writeFromAudioSampleBuffer (renderBuffer, 0, numSamplesThisBlock);
             samplesRendered += numSamplesThisBlock;
         }
 
-        writer.reset();
-        tsf_close (tsfOffline);
+        offlineProcessor.releaseResources();
+        wavWriter.reset(); // Flush WAV to disk
 
-        if (threadShouldExit())
+        if (isMidi && ! threadShouldExit())
         {
-            wavFile.deleteFile();
+            if (auto stream = std::unique_ptr<juce::FileOutputStream>(exportFile.createOutputStream()))
+            {
+                juce::MidiFile mf;
+                mf.setTicksPerQuarterNote (960);
+                capturedMidi.updateMatchedPairs();
+                
+                // Dynamic sample-to-tick mapper (handles tempo changes perfectly)
+                auto sampleToTick = [&](double samplePos) -> double {
+                    double accumSamples = 0.0, accumTicks = 0.0;
+                    for (auto& sec : sections) {
+                        double secSamplesPerTick = sampleRate / (16.0 * sec.bpm);
+                        int secDurationTicks = 0;
+                        for (auto& cb : sec.blocks) secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
+                        for (int loop = 0; loop < sec.loopCount; ++loop) {
+                            double secSamples = secDurationTicks * secSamplesPerTick;
+                            if (samplePos <= accumSamples + secSamples) return accumTicks + ((samplePos - accumSamples) / secSamplesPerTick);
+                            accumSamples += secSamples; accumTicks += secDurationTicks;
+                        }
+                    }
+                    return accumTicks;
+                };
+                
+                // Split into Multitrack Format 1
+                for (int ch = 1; ch <= 16; ++ch) {
+                    juce::MidiMessageSequence trackSeq;
+                    if (ch == 1) {
+                        trackSeq.addEvent (juce::MidiMessage::timeSignatureMetaEvent (4, 4), 0);
+                        double accumTicks = 0.0;
+                        for (auto& sec : sections) {
+                            int secDurationTicks = 0;
+                            for (auto& cb : sec.blocks) secDurationTicks += cb.durationBeats * ticksPerQuarterNote;
+                            for (int loop = 0; loop < sec.loopCount; ++loop) {
+                                trackSeq.addEvent (juce::MidiMessage::tempoMetaEvent (static_cast<int>(60000000.0 / sec.bpm)), accumTicks);
+                                accumTicks += secDurationTicks;
+                            }
+                        }
+                    }
+                    for (int i = 0; i < capturedMidi.getNumEvents(); ++i) {
+                        auto msg = capturedMidi.getEventPointer(i)->message;
+                        if (msg.getChannel() == ch || msg.isMetaEvent()) {
+                            msg.setTimeStamp (sampleToTick (msg.getTimeStamp()));
+                            trackSeq.addEvent (msg);
+                        }
+                    }
+                    if (trackSeq.getNumEvents() > (ch == 1 ? 2 : 0)) mf.addTrack (trackSeq);
+                }
+                mf.writeTo (*stream);
+            }
         }
-        else
-        {
-            juce::MessageManager::callAsync ([wavFile]() {
-                #if JUCE_ANDROID || JUCE_IOS
-                    triggerOSShareSheet (wavFile);
-                #else
-                    juce::AlertWindow::showMessageBoxAsync (
-                        juce::AlertWindow::InfoIcon,
-                        "WAV Export Successful",
-                        "Rendered 24-bit WAV file saved to Documents:\n\n" + wrapPath (wavFile.getFullPathName()),
-                        "OK"
-                    );
-                #endif
-            });
-        }
+
+        if (! threadShouldExit()) saveExportedFile (exportFile);
+        else exportFile.deleteFile();
     }
-
 private:
     std::vector<SongSection> sections;
+    bool isMidi;
+};
+
+class OfflineRenderThread : public juce::Thread
+{
+public:
+    OfflineRenderThread (const ChordArrangement&) : juce::Thread ("") {}
+    void run() override {}
 };
 
 class SimplePdfWriter
@@ -598,7 +367,7 @@ static inline void drawChordsOnlyPage (SimplePdfWriter& pdf, const juce::String&
         auto& cb = chords.getReference (i);
         int blockX = startX + i * colWidth + colWidth / 2, barX = startX + (i + 1) * colWidth;
         pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (1.5f); pdf.drawLine (barX, centerY - 16, barX, centerY + 16);
-        pdf.setFillColor (0xff1e1e2e); pdf.drawText (cb.name, blockX - (cb.name.length() * 4.0f), centerY - 24.0f, "Georgia", 14.0f, true, false);
+        pdf.setFillColor (0xff1e1e2e); pdf.drawText (cb.name, blockX - (cb.name.length() * 4.0f), centerY - 55.0f, "Georgia", 14.0f, true, false);
 
         juce::Array<int> notes = resolveChordMidiNotes (cb);
         if (! notes.isEmpty())
@@ -613,8 +382,8 @@ static inline void drawChordsOnlyPage (SimplePdfWriter& pdf, const juce::String&
 
                 if (step < minStep) { minStep = step; minNoteY = noteY; } if (step > maxStep) { maxStep = step; maxNoteY = noteY; }
                 pdf.setFillColor (0xff1e1e2e); pdf.fillEllipse (blockX, noteY, 3.25f, 2.25f);
-                if (acc == 1) pdf.drawText ("#", blockX - 14, noteY + 3.5f, "Helvetica-Bold", 10.0f, true, false);
-                else if (acc == -1) pdf.drawText ("b", blockX - 12, noteY + 3.5f, "Times-Bold", 10.0f, true, false);
+                if (acc == 1) pdf.drawText ("#", blockX - 18, noteY + 3.5f, "Helvetica-Bold", 10.0f, true, false);
+                else if (acc == -1) pdf.drawText ("b", blockX - 16, noteY + 3.5f, "Times-Bold", 10.0f, true, false);
 
                 pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (0.75f);
                 if (step <= 0) for (int s = 0; s >= step; s -= 2) pdf.drawLine (blockX - 8, centerY - (s - 6) * 4.0f, blockX + 8, centerY - (s - 6) * 4.0f);
@@ -645,9 +414,24 @@ static inline void drawTrackPage (SimplePdfWriter& pdf, const juce::String& sect
     pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (1.0f);
     for (int line = -2; line <= 2; ++line) pdf.drawLine (50.0f, centerY + line * lineSpacing, 1150.0f, centerY + line * lineSpacing);
 
+    bool useBassClef = (!lane.isDrums) && ((lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39) || lane.gmProgramNumber == 43 || lane.gmProgramNumber == 58 || lane.gmProgramNumber == 70);
+
     pdf.setStrokeColor (0xff1e1e2e); pdf.setLineWidth (1.5f);
-    pdf.startPath (65, centerY + 24); pdf.lineTo (65, centerY - 24); pdf.quadraticTo (65, centerY - 35, 72, centerY - 35); pdf.quadraticTo (79, centerY - 35, 79, centerY - 24); pdf.lineTo (58, centerY + 10); pdf.quadraticTo (50, centerY + 17, 58, centerY + 24); pdf.quadraticTo (65, centerY + 30, 72, centerY + 24); pdf.quadraticTo (79, centerY + 17, 65, centerY + 3); pdf.quadraticTo (58, centerY - 10, 65, centerY - 10); pdf.strokePath();
-    pdf.setFillColor (0xff1e1e2e); pdf.fillEllipse (65, centerY + 24, 2.5f, 2.5f);
+    if (useBassClef) {
+        // Draw F-Clef (Bass Clef)
+        pdf.setFillColor (0xff1e1e2e);
+        pdf.fillEllipse (65, centerY - 8, 2.5f, 2.5f);
+        pdf.startPath (65, centerY - 8);
+        pdf.quadraticTo (75, centerY - 18, 80, centerY - 8);
+        pdf.quadraticTo (85, centerY + 5, 60, centerY + 16);
+        pdf.strokePath();
+        pdf.fillEllipse (85, centerY - 12, 1.5f, 1.5f);
+        pdf.fillEllipse (85, centerY - 4, 1.5f, 1.5f);
+    } else {
+        // Draw G-Clef (Treble Clef)
+        pdf.startPath (65, centerY + 24); pdf.lineTo (65, centerY - 24); pdf.quadraticTo (65, centerY - 35, 72, centerY - 35); pdf.quadraticTo (79, centerY - 35, 79, centerY - 24); pdf.lineTo (58, centerY + 10); pdf.quadraticTo (50, centerY + 17, 58, centerY + 24); pdf.quadraticTo (65, centerY + 30, 72, centerY + 24); pdf.quadraticTo (79, centerY + 17, 65, centerY + 3); pdf.quadraticTo (58, centerY - 10, 65, centerY - 10); pdf.strokePath();
+        pdf.setFillColor (0xff1e1e2e); pdf.fillEllipse (65, centerY + 24, 2.5f, 2.5f);
+    }
     pdf.drawText ("4", 103, centerY - 2, "Georgia", 24.0f, true, false); pdf.drawText ("4", 103, centerY + 16, "Georgia", 24.0f, true, false);
 
     int totalTicks = 0; for (auto& cb : chords) totalTicks += cb.durationBeats * 960;
@@ -665,7 +449,7 @@ static inline void drawTrackPage (SimplePdfWriter& pdf, const juce::String& sect
         int blockEndX = startX + ((currentTickOffset + blockDurationTicks) / (double)totalTicks) * (endX - startX);
 
         pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (1.5f); pdf.drawLine (blockEndX, centerY - 16, blockEndX, centerY + 16);
-        pdf.setFillColor (0xff1e1e2e); pdf.drawText (cb.name, ((blockStartX + blockEndX) / 2.0f) - (cb.name.length() * 3.5f), centerY - 24.0f, "Georgia", 14.0f, true, false);
+        pdf.setFillColor (0xff1e1e2e); pdf.drawText (cb.name, ((blockStartX + blockEndX) / 2.0f) - (cb.name.length() * 3.5f), centerY - 55.0f, "Georgia", 14.0f, true, false);
 
         juce::Array<int> chordMidiNotes = resolveChordMidiNotes (cb);
         auto* pattern = PatternDatabase::getInstance().getPatternById (lane.patternId.toStdString());
@@ -675,43 +459,46 @@ static inline void drawTrackPage (SimplePdfWriter& pdf, const juce::String& sect
             for (auto& n : pattern->notes) maxNoteEnd = std::max (maxNoteEnd, n.tick + n.duration);
             if (maxNoteEnd > 0) patternLength = maxNoteEnd;
 
-            for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
+        for (int offset = 0; offset < blockDurationTicks; offset += patternLength)
+        {
+            for (auto& note : pattern->notes)
             {
-                for (auto& note : pattern->notes)
+                int noteStartInBlock = offset + note.tick; if (noteStartInBlock >= blockDurationTicks) continue;
+                int midiNote = 60;
+                if (note.drumMidi.has_value()) midiNote = note.drumMidi.value();
+                else if (note.degree.has_value() && ! chordMidiNotes.isEmpty())
                 {
-                    int noteStartInBlock = offset + note.tick; if (noteStartInBlock >= blockDurationTicks) continue;
-                    int midiNote = 60;
-                    if (note.drumMidi.has_value()) midiNote = note.drumMidi.value();
-                    else if (note.degree.has_value() && ! chordMidiNotes.isEmpty())
-                    {
-                        int chordSize = chordMidiNotes.size();
-                        int wrappedDegree = ((note.degree.value() % chordSize) + chordSize) % chordSize;
-                        int octaveShift = (int)std::floor((float)note.degree.value() / chordSize);
-                        midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
-                        if (lane.gmProgramNumber >= 32 && lane.gmProgramNumber <= 39) midiNote -= 24;
-                    }
-
-                    int absNoteTick = currentTickOffset + noteStartInBlock;
-                    float noteX = startX + (absNoteTick / (double)totalTicks) * (endX - startX);
-
-                    int pitch = (midiNote - 60) % 12, octave = (midiNote - 60) / 12; if (pitch < 0) { pitch += 12; octave -= 1; }
-                    int step = octave * 7 + (flatSpelling ? stepInOctaveFlat[pitch] : stepInOctave[pitch]);
-                    int acc = flatSpelling ? accidentalInOctaveFlat[pitch] : accidentalInOctave[pitch];
-                    int noteY = centerY - (step - 6) * 4.0f;
-
-                    pdf.setFillColor (0xff1e1e2e); pdf.fillEllipse (noteX, noteY, 3.25f, 2.25f);
-                    pdf.setStrokeColor (0xff1e1e2e); pdf.setLineWidth (1.0f);
-                    if (step < 6) pdf.drawLine (noteX + 3.25f, noteY, noteX + 3.25f, noteY - 28);
-                    else pdf.drawLine (noteX - 3.25f, noteY, noteX - 3.25f, noteY + 28);
-
-                    if (acc == 1) { pdf.setFillColor (0xff1e1e2e); pdf.drawText ("#", noteX - 14, noteY + 3.5f, "Helvetica-Bold", 10.0f, true, false); }
-                    else if (acc == -1) { pdf.setFillColor (0xff1e1e2e); pdf.drawText ("b", noteX - 12, noteY + 3.5f, "Times-Bold", 10.0f, true, false); }
-
-                    pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (0.75f);
-                    if (step <= 0) for (int s = 0; s >= step; s -= 2) pdf.drawLine (noteX - 8, centerY - (s - 6) * 4.0f, noteX + 8, centerY - (s - 6) * 4.0f);
-                    else if (step >= 12) for (int s = 12; s <= step; s += 2) pdf.drawLine (noteX - 8, centerY - (s - 6) * 4.0f, noteX + 8, centerY - (s - 6) * 4.0f);
+                    int chordSize = chordMidiNotes.size();
+                    int wrappedDegree = ((note.degree.value() % chordSize) + chordSize) % chordSize;
+                    int octaveShift = (int)std::floor((float)note.degree.value() / chordSize);
+                    midiNote = chordMidiNotes[wrappedDegree] + (octaveShift * 12);
                 }
+
+                int absNoteTick = currentTickOffset + noteStartInBlock;
+                float noteX = startX + (absNoteTick / (double)totalTicks) * (endX - startX);
+
+                int pitch = (midiNote - 60) % 12, octave = (midiNote - 60) / 12; if (pitch < 0) { pitch += 12; octave -= 1; }
+                int step = octave * 7 + (flatSpelling ? stepInOctaveFlat[pitch] : stepInOctave[pitch]);
+                int acc = flatSpelling ? accidentalInOctaveFlat[pitch] : accidentalInOctave[pitch];
+                
+                if (lane.isDrums) { step = 6; acc = 0; }
+                else if (useBassClef) { step += 12; } // Shift visual position up to F-Clef staff
+                
+                int noteY = centerY - (step - 6) * 4.0f;
+
+                pdf.setFillColor (0xff1e1e2e); pdf.fillEllipse (noteX, noteY, 3.25f, 2.25f);
+                pdf.setStrokeColor (0xff1e1e2e); pdf.setLineWidth (1.0f);
+                if (step < 6) pdf.drawLine (noteX + 3.25f, noteY, noteX + 3.25f, noteY - 28);
+                else pdf.drawLine (noteX - 3.25f, noteY, noteX - 3.25f, noteY + 28);
+
+                if (acc == 1) { pdf.setFillColor (0xff1e1e2e); pdf.drawText ("#", noteX - 18, noteY + 3.5f, "Helvetica-Bold", 10.0f, true, false); }
+                else if (acc == -1) { pdf.setFillColor (0xff1e1e2e); pdf.drawText ("b", noteX - 16, noteY + 3.5f, "Times-Bold", 10.0f, true, false); }
+
+                pdf.setStrokeColor (0xff78716c); pdf.setLineWidth (0.75f);
+                if (step <= 0) for (int s = 0; s >= step; s -= 2) pdf.drawLine (noteX - 8, centerY - (s - 6) * 4.0f, noteX + 8, centerY - (s - 6) * 4.0f);
+                else if (step >= 12) for (int s = 12; s <= step; s += 2) pdf.drawLine (noteX - 8, centerY - (s - 6) * 4.0f, noteX + 8, centerY - (s - 6) * 4.0f);
             }
+        }
         }
         currentTickOffset += blockDurationTicks;
     }
@@ -751,17 +538,6 @@ inline void performSheetMusicExport (const ChordArrangement& arrangement, bool e
         stream->write (pdfData.toRawUTF8(), pdfData.getNumBytesAsUTF8());
         stream.reset();
 
-        juce::MessageManager::callAsync ([pdfFile]() {
-            #if JUCE_ANDROID || JUCE_IOS
-                triggerOSShareSheet (pdfFile);
-            #else
-                juce::AlertWindow::showMessageBoxAsync (
-                    juce::AlertWindow::InfoIcon,
-                    "Sheet Music Export Successful",
-                    "Sheet Music PDF document saved to Documents:\n\n" + wrapPath (pdfFile.getFullPathName()),
-                    "OK"
-                );
-            #endif
-        });
+        saveExportedFile (pdfFile);
     }
 }

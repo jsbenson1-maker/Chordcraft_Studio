@@ -294,10 +294,7 @@ void TimelineComponent::mouseUp (const juce::MouseEvent& event)
             if (arrangement.isChordPreviewEnabled)
             {
                 previewBlockIndex = dragStartIndex;
-                if (auto* processor = arrangement.getAudioProcessor())
-                {
-                    processor->playChordPreview (cb, arrangement.trackLanes);
-                }
+                arrangement.triggerPreview (cb, arrangement.trackLanes);
             }
         }
         arrangement.notifyChanges();

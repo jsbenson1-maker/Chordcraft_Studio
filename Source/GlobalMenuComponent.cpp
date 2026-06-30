@@ -621,12 +621,12 @@ void GlobalMenuComponent::performExport()
     {
         if (result == 1)
         {
-            performMidiExport (arrangement);
+            auto* thread = new FastOfflineBouncer (arrangement, true); // True = MIDI
+            thread->startThread();
         }
         else if (result == 2)
         {
-            // OfflineRenderThread is managed asynchronously
-            auto* thread = new OfflineRenderThread (arrangement);
+            auto* thread = new FastOfflineBouncer (arrangement, false); // False = WAV
             thread->startThread();
         }
         else if (result == 3)
