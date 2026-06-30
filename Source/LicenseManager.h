@@ -66,7 +66,7 @@ private:
 
 // --- JNI Callback (Android commanding C++) ---
 #if JUCE_ANDROID
-extern "C" JNIEXPORT void JNICALL
+extern "C" inline JNIEXPORT void JNICALL
 Java_com_groovespeakstudios_chordcraftstudio_MainActivity_nativeSetProStatus(JNIEnv* env, jobject thiz, jboolean isPro)
 {
     juce::MessageManager::callAsync([isPro]() {
