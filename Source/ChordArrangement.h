@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "ChordcraftAudioProcessor.h"
 #include "ChordDatabase.h"
+#include "LicenseManager.h"
 
 struct ChordBlock
 {
@@ -145,7 +146,7 @@ public:
         for (int i = 0; i < 12; ++i)
         {
             TrackSettings ts;
-            ts.enabled = true;
+            ts.enabled = LicenseManager::getInstance()->isPro() ? true : (i < 4);
             ts.gmProgramNumber = 0;
             ts.patternId = "";
             ts.volume = 0.6f;
@@ -377,7 +378,7 @@ public:
         for (int i = 0; i < 12; ++i)
         {
             TrackSettings ts;
-            ts.enabled = true;
+            ts.enabled = LicenseManager::getInstance()->isPro() ? true : (i < 4);
             ts.gmProgramNumber = 0;
             ts.patternId = "";
             ts.volume = 0.6f;

@@ -654,13 +654,19 @@ void GlobalMenuComponent::performExport()
             }
             else
             {
-                juce::AlertWindow::showMessageBoxAsync (
+                juce::AlertWindow::showOkCancelBox (
                     juce::AlertWindow::WarningIcon, 
                     "Chordcraft Pro", 
                     "Exporting studio-quality audio and sheet music requires Chordcraft Pro.\n\nUpgrade today to unlock all features!", 
-                    "Upgrade to Pro"
+                    "Upgrade to Pro",
+                    "Cancel",
+                    nullptr,
+                    juce::ModalCallbackFunction::create ([](int result)
+                    {
+                        if (result != 0)
+                            LicenseManager::getInstance()->initiateProPurchase();
+                    })
                 );
-                LicenseManager::getInstance()->initiateProPurchase();
             }
         }
     });

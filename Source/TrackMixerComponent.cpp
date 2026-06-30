@@ -1,6 +1,7 @@
 #include "TrackMixerComponent.h"
 #include "ThemeManager.h"
 #include "PatternDatabase.h"
+#include "LicenseManager.h"
 
 //==============================================================================
 TrackMixerComponent::TrackMixerComponent (ChordArrangement& arr)
@@ -115,6 +116,32 @@ TrackMixerComponent::MixerListContent::MixerListContent (TrackMixerComponent& o)
     addAndMakeVisible (addMelodicButton);
     addMelodicButton.setButtonText ("+ Add Melodic");
     addMelodicButton.onClick = [this] {
+        if (! LicenseManager::getInstance()->isPro())
+        {
+            int enabledMelodic = 0;
+            for (auto& lane : owner.arrangement.trackLanes)
+            {
+                if (! lane.isDrums && lane.enabled)
+                    enabledMelodic++;
+            }
+            if (enabledMelodic >= 4)
+            {
+                juce::AlertWindow::showOkCancelBox (
+                    juce::AlertWindow::WarningIcon, 
+                    "Chordcraft Pro", 
+                    "Using more than 4 melodic tracks requires Chordcraft Pro.\n\nUpgrade today to unlock unlimited tracks!", 
+                    "Upgrade to Pro",
+                    "Cancel",
+                    nullptr,
+                    juce::ModalCallbackFunction::create ([](int result)
+                    {
+                        if (result != 0)
+                            LicenseManager::getInstance()->initiateProPurchase();
+                    })
+                );
+                return;
+            }
+        }
         owner.arrangement.saveActiveSection();
         TrackSettings ts;
         ts.enabled = true;
@@ -130,6 +157,32 @@ TrackMixerComponent::MixerListContent::MixerListContent (TrackMixerComponent& o)
     addAndMakeVisible (addDrumButton);
     addDrumButton.setButtonText ("+ Add Drums");
     addDrumButton.onClick = [this] {
+        if (! LicenseManager::getInstance()->isPro())
+        {
+            int enabledDrums = 0;
+            for (auto& lane : owner.arrangement.trackLanes)
+            {
+                if (lane.isDrums && lane.enabled)
+                    enabledDrums++;
+            }
+            if (enabledDrums >= 1)
+            {
+                juce::AlertWindow::showOkCancelBox (
+                    juce::AlertWindow::WarningIcon, 
+                    "Chordcraft Pro", 
+                    "Using more than 1 drum track requires Chordcraft Pro.\n\nUpgrade today to unlock unlimited tracks!", 
+                    "Upgrade to Pro",
+                    "Cancel",
+                    nullptr,
+                    juce::ModalCallbackFunction::create ([](int result)
+                    {
+                        if (result != 0)
+                            LicenseManager::getInstance()->initiateProPurchase();
+                    })
+                );
+                return;
+            }
+        }
         owner.arrangement.saveActiveSection();
         TrackSettings ts;
         ts.enabled = true;
@@ -188,7 +241,69 @@ TrackMixerComponent::MixerListContent::TrackRow::TrackRow (MixerListContent& o, 
     enableToggle.setToggleState (lane.enabled, juce::dontSendNotification);
     enableToggle.onClick = [this] {
         ThemeManager::triggerHapticRatchet();
-        owner.owner.arrangement.trackLanes[idx].enabled = enableToggle.getToggleState();
+        bool isPro = LicenseManager::getInstance()->isPro();
+        bool newState = enableToggle.getToggleState();
+        auto& lane = owner.owner.arrangement.trackLanes[idx];
+        
+        if (! isPro && newState)
+        {
+            if (lane.isDrums)
+            {
+                int enabledDrums = 0;
+                for (int i = 0; i < (int) owner.owner.arrangement.trackLanes.size(); ++i)
+                {
+                    if (i != idx && owner.owner.arrangement.trackLanes[i].isDrums && owner.owner.arrangement.trackLanes[i].enabled)
+                        enabledDrums++;
+                }
+                if (enabledDrums >= 1)
+                {
+                    enableToggle.setToggleState (false, juce::dontSendNotification);
+                    juce::AlertWindow::showOkCancelBox (
+                        juce::AlertWindow::WarningIcon, 
+                        "Chordcraft Pro", 
+                        "Enabling more than 1 drum track requires Chordcraft Pro.\n\nUpgrade today to unlock unlimited tracks!", 
+                        "Upgrade to Pro",
+                        "Cancel",
+                        nullptr,
+                        juce::ModalCallbackFunction::create ([](int result)
+                        {
+                            if (result != 0)
+                                LicenseManager::getInstance()->initiateProPurchase();
+                        })
+                    );
+                    return;
+                }
+            }
+            else
+            {
+                int enabledMelodic = 0;
+                for (int i = 0; i < (int) owner.owner.arrangement.trackLanes.size(); ++i)
+                {
+                    if (i != idx && ! owner.owner.arrangement.trackLanes[i].isDrums && owner.owner.arrangement.trackLanes[i].enabled)
+                        enabledMelodic++;
+                }
+                if (enabledMelodic >= 4)
+                {
+                    enableToggle.setToggleState (false, juce::dontSendNotification);
+                    juce::AlertWindow::showOkCancelBox (
+                        juce::AlertWindow::WarningIcon, 
+                        "Chordcraft Pro", 
+                        "Enabling more than 4 melodic tracks requires Chordcraft Pro.\n\nUpgrade today to unlock unlimited tracks!", 
+                        "Upgrade to Pro",
+                        "Cancel",
+                        nullptr,
+                        juce::ModalCallbackFunction::create ([](int result)
+                        {
+                            if (result != 0)
+                                LicenseManager::getInstance()->initiateProPurchase();
+                        })
+                    );
+                    return;
+                }
+            }
+        }
+        
+        owner.owner.arrangement.trackLanes[idx].enabled = newState;
         owner.owner.arrangement.sendProgressionToAudioThread();
     };
 

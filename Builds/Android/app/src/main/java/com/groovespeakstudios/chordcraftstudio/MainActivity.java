@@ -15,6 +15,7 @@ public class MainActivity extends JuceActivity
     private BillingClient billingClient;
     private InterstitialAd mInterstitialAd;
     private boolean isProUnlocked = false;
+    private boolean showStartupAdRequested = false;
     private final String PRO_PRODUCT_ID = "chordcraft_pro_unlock";
 
     // JNI Native Method Declaration
@@ -50,8 +51,10 @@ public class MainActivity extends JuceActivity
 
     public void showStartupAd() {
         runOnUiThread(() -> {
+            showStartupAdRequested = true;
             if (!isProUnlocked && mInterstitialAd != null) {
                 mInterstitialAd.show(this);
+                showStartupAdRequested = false;
             }
         });
     }
@@ -83,9 +86,30 @@ public class MainActivity extends JuceActivity
         InterstitialAd.load(this, "ca-app-pub-3940256099942544/1033173712", adRequest,
             new InterstitialAdLoadCallback() {
                 @Override
-                public void onAdLoaded(@NonNull InterstitialAd interstitialAd) { mInterstitialAd = interstitialAd; }
+                public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
+                    mInterstitialAd = interstitialAd;
+                    mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                        @Override
+                        public void onAdDismissedFullScreenContent() {
+                            mInterstitialAd = null;
+                            loadInterstitialAd(); // Load next ad
+                        }
+                        @Override
+                        public void onAdFailedToShowFullScreenContent(@NonNull AdError adError) {
+                            mInterstitialAd = null;
+                            loadInterstitialAd();
+                        }
+                    });
+                    
+                    if (showStartupAdRequested && !isProUnlocked) {
+                        mInterstitialAd.show(MainActivity.this);
+                        showStartupAdRequested = false;
+                    }
+                }
                 @Override
-                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) { mInterstitialAd = null; }
+                public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    mInterstitialAd = null;
+                }
             });
     }
 

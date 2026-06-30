@@ -5,6 +5,7 @@
 #include "ChordArrangement.h"
 #include "ChordDatabase.h"
 #include "PatternDatabase.h"
+#include "LicenseManager.h"
 #include <cmath>
 
 //==============================================================================
@@ -641,15 +642,18 @@ void ChordcraftAudioProcessor::updateSequencerTiming()
 
 void ChordcraftAudioProcessor::updateActiveMidiOutputs()
 {
-    auto devices = juce::MidiOutput::getAvailableDevices();
-    
     juce::OwnedArray<juce::MidiOutput> newOutputs;
-    for (auto& d : devices)
+    
+    if (LicenseManager::getInstance()->isPro())
     {
-        if (auto out = juce::MidiOutput::openDevice (d.identifier))
+        auto devices = juce::MidiOutput::getAvailableDevices();
+        for (auto& d : devices)
         {
-            out->startBackgroundThread();
-            newOutputs.add (out.release());
+            if (auto out = juce::MidiOutput::openDevice (d.identifier))
+            {
+                out->startBackgroundThread();
+                newOutputs.add (out.release());
+            }
         }
     }
     
