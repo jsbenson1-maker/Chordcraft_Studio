@@ -94,7 +94,11 @@ MainComponent::MainComponent()
     audioProcessor->updateActiveMidiOutputs();
     startTimer (2000);
 
-    LicenseManager::getInstance()->showStartupAd();
+    // Wait 500 milliseconds for the UI to finish drawing before firing the Ad
+    juce::Timer::callAfterDelay (500, []()
+    {
+        LicenseManager::getInstance()->showStartupAd();
+    });
 }
 
 MainComponent::~MainComponent()
