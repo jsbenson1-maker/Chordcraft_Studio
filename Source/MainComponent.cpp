@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "LicenseManager.h"
 
 //==============================================================================
 MainComponent::MainComponent()
@@ -92,6 +93,8 @@ MainComponent::MainComponent()
     // Start MIDI Output scanner (every 2 seconds)
     audioProcessor->updateActiveMidiOutputs();
     startTimer (2000);
+
+    LicenseManager::getInstance()->showStartupAd();
 }
 
 MainComponent::~MainComponent()

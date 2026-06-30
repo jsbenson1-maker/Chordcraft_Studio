@@ -2,6 +2,7 @@
 #include "ThemeManager.h"
 #include "ExportEngine.h"
 #include "AiCoreManager.h"
+#include "LicenseManager.h"
 
 
 
@@ -619,32 +620,48 @@ void GlobalMenuComponent::performExport()
 
     menu.showMenuAsync (juce::PopupMenu::Options(), [this](int result)
     {
-        if (result == 1)
+        if (result >= 1 && result <= 3)
         {
-            auto* thread = new FastOfflineBouncer (arrangement, true); // True = MIDI
-            thread->startThread();
-        }
-        else if (result == 2)
-        {
-            auto* thread = new FastOfflineBouncer (arrangement, false); // False = WAV
-            thread->startThread();
-        }
-        else if (result == 3)
-        {
-            juce::PopupMenu pdfMenu;
-            pdfMenu.addItem (1, "Chords Only");
-            pdfMenu.addItem (2, "Full Sheet Music");
-            pdfMenu.showMenuAsync (juce::PopupMenu::Options(), [this](int pdfResult)
+            if (LicenseManager::getInstance()->isPro())
             {
-                if (pdfResult == 1)
+                if (result == 1)
                 {
-                    performSheetMusicExport (arrangement, false);
+                    auto* thread = new FastOfflineBouncer (arrangement, true); // True = MIDI
+                    thread->startThread();
                 }
-                else if (pdfResult == 2)
+                else if (result == 2)
                 {
-                    performSheetMusicExport (arrangement, true);
+                    auto* thread = new FastOfflineBouncer (arrangement, false); // False = WAV
+                    thread->startThread();
                 }
-            });
+                else if (result == 3)
+                {
+                    juce::PopupMenu pdfMenu;
+                    pdfMenu.addItem (1, "Chords Only");
+                    pdfMenu.addItem (2, "Full Sheet Music");
+                    pdfMenu.showMenuAsync (juce::PopupMenu::Options(), [this](int pdfResult)
+                    {
+                        if (pdfResult == 1)
+                        {
+                            performSheetMusicExport (arrangement, false);
+                        }
+                        else if (pdfResult == 2)
+                        {
+                            performSheetMusicExport (arrangement, true);
+                        }
+                    });
+                }
+            }
+            else
+            {
+                juce::AlertWindow::showMessageBoxAsync (
+                    juce::AlertWindow::WarningIcon, 
+                    "Chordcraft Pro", 
+                    "Exporting studio-quality audio and sheet music requires Chordcraft Pro.\n\nUpgrade today to unlock all features!", 
+                    "Upgrade to Pro"
+                );
+                LicenseManager::getInstance()->initiateProPurchase();
+            }
         }
     });
 }
