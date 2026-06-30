@@ -1,5 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
+#if JUCE_ANDROID
+#include <juce_core/native/juce_android_JNIHelpers.h>
+#endif
 
 class LicenseManager : public juce::ChangeBroadcaster
 {
@@ -44,20 +47,19 @@ private:
     #if JUCE_ANDROID
     void callJavaMethod (const char* methodName)
     {
-        auto* env = juce::getEnv();
-        if (env == nullptr) return;
-        
-        jobject activity = juce::getAppContext().get();
-        if (activity == nullptr) return;
-        
-        jclass activityClass = env->GetObjectClass(activity);
-        jmethodID methodId = env->GetMethodID(activityClass, methodName, "()V");
-        
-        if (methodId != 0) {
-            env->CallVoidMethod(activity, methodId);
+        if (auto* env = juce::getEnv())
+        {
+            auto activity = juce::getAppContext();
+            if (activity.get() != nullptr)
+            {
+                jclass clazz = env->GetObjectClass(activity.get());
+                jmethodID methodId = env->GetMethodID(clazz, methodName, "()V");
+                if (methodId != nullptr) {
+                    env->CallVoidMethod(activity.get(), methodId);
+                }
+                env->DeleteLocalRef(clazz);
+            }
         }
-        
-        env->DeleteLocalRef(activityClass);
     }
     #endif
 
