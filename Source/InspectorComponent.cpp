@@ -1558,8 +1558,7 @@ void InspectorComponent::mouseDown (const juce::MouseEvent& event)
                 int mIdx = (result - 1) % 100;
                 if (rIdx >= 0 && rIdx < roots.size() && mIdx >= 0 && mIdx < modes.size())
                 {
-                    arrangement.activeKey = roots[rIdx] + " " + modes[mIdx];
-                    arrangement.notifyChanges();
+                    arrangement.changeActiveKeyAndMode (roots[rIdx] + " " + modes[mIdx]);
                     updateAiAdvice();
                 }
             }

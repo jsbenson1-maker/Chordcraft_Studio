@@ -105,6 +105,265 @@ static inline juce::Array<int> resolveChordMidiNotes (const ChordBlock& cb)
     return chordMidiNotes;
 }
 
+static inline juce::Array<int> getScalePitchClassesHelper (const juce::String& activeKey)
+{
+    juce::String keyRoot = "C";
+    juce::String keyMode = "Maj";
+    
+    juce::StringArray keyTokens;
+    keyTokens.addTokens (activeKey, " ", "");
+    if (keyTokens.size() > 0)
+        keyRoot = keyTokens[0];
+    if (keyTokens.size() > 1)
+        keyMode = keyTokens[1];
+        
+    auto getPitchClass = [](const juce::String& r) -> int {
+        if (r == "C") return 0;
+        if (r == "Db" || r == "C#") return 1;
+        if (r == "D") return 2;
+        if (r == "Eb" || r == "D#") return 3;
+        if (r == "E") return 4;
+        if (r == "F") return 5;
+        if (r == "Gb" || r == "F#") return 6;
+        if (r == "G") return 7;
+        if (r == "Ab" || r == "G#") return 8;
+        if (r == "A") return 9;
+        if (r == "Bb" || r == "A#") return 10;
+        if (r == "B") return 11;
+        return 0;
+    };
+    
+    int rootPitch = getPitchClass (keyRoot);
+    juce::Array<int> intervals;
+    
+    if (keyMode.equalsIgnoreCase ("Maj") || keyMode.equalsIgnoreCase ("Ionian"))
+        intervals = { 0, 2, 4, 5, 7, 9, 11 };
+    else if (keyMode.equalsIgnoreCase ("Min") || keyMode.equalsIgnoreCase ("Aeolian"))
+        intervals = { 0, 2, 3, 5, 7, 8, 10 };
+    else if (keyMode.equalsIgnoreCase ("Dorian"))
+        intervals = { 0, 2, 3, 5, 7, 9, 10 };
+    else if (keyMode.equalsIgnoreCase ("Phrygian"))
+        intervals = { 0, 1, 3, 5, 7, 8, 10 };
+    else if (keyMode.equalsIgnoreCase ("Lydian"))
+        intervals = { 0, 2, 4, 6, 7, 9, 11 };
+    else if (keyMode.equalsIgnoreCase ("Mixolydian"))
+        intervals = { 0, 2, 4, 5, 7, 9, 10 };
+    else if (keyMode.equalsIgnoreCase ("Locrian"))
+        intervals = { 0, 1, 3, 5, 6, 8, 10 };
+    else
+        intervals = { 0, 2, 4, 5, 7, 9, 11 }; // Fallback to Major
+        
+    juce::Array<int> scale;
+    for (int interval : intervals)
+        scale.add ((rootPitch + interval) % 12);
+        
+    return scale;
+}
+
+static inline juce::StringArray getDiatonicRootsForKeyHelper (const juce::String& activeKey)
+{
+    juce::StringArray flatNotes = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+    juce::StringArray sharpNotes = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+
+    juce::String keyRoot = activeKey.upToFirstOccurrenceOf(" ", false, false).trim();
+    bool useFlats = keyRoot.contains("b") || keyRoot == "F" || (activeKey.contains("Min") && (keyRoot == "D" || keyRoot == "G" || keyRoot == "C"));
+
+    juce::Array<int> pitchClasses = getScalePitchClassesHelper (activeKey);
+    juce::StringArray roots;
+    for (int pc : pitchClasses) {
+        roots.add (useFlats ? flatNotes[pc % 12] : sharpNotes[pc % 12]);
+    }
+    return roots;
+}
+
+static inline void transposeChordBlockToNewKey (ChordBlock& cb, const juce::String& oldKey, const juce::String& newKey)
+{
+    juce::StringArray oldDiatonicRoots = getDiatonicRootsForKeyHelper (oldKey);
+    juce::StringArray newDiatonicRoots = getDiatonicRootsForKeyHelper (newKey);
+    
+    juce::Array<int> oldScalePitches = getScalePitchClassesHelper (oldKey);
+    juce::Array<int> newScalePitches = getScalePitchClassesHelper (newKey);
+    
+    auto getPitchClass = [](const juce::String& r) -> int {
+        if (r == "C") return 0;
+        if (r == "Db" || r == "C#") return 1;
+        if (r == "D") return 2;
+        if (r == "Eb" || r == "D#") return 3;
+        if (r == "E") return 4;
+        if (r == "F") return 5;
+        if (r == "Gb" || r == "F#") return 6;
+        if (r == "G") return 7;
+        if (r == "Ab" || r == "G#") return 8;
+        if (r == "A") return 9;
+        if (r == "Bb" || r == "A#") return 10;
+        if (r == "B") return 11;
+        return 0;
+    };
+
+    int oldRootPitch = getPitchClass (cb.root);
+    int oldScaleDegreeIndex = -1;
+    for (int i = 0; i < oldScalePitches.size(); ++i)
+    {
+        if (oldScalePitches[i] == oldRootPitch)
+        {
+            oldScaleDegreeIndex = i;
+            break;
+        }
+    }
+    
+    juce::String newMode = "Maj";
+    juce::StringArray keyTokens;
+    keyTokens.addTokens (newKey, " ", "");
+    if (keyTokens.size() > 1)
+        newMode = keyTokens[1];
+
+    auto getDiatonicTriadQuality = [](const juce::String& mode, int degreeIndex) -> juce::String {
+        juce::String m = mode.trim().toLowerCase();
+        if (m == "maj" || m == "ionian")
+        {
+            const char* qualities[] = { "Maj", "Min", "Min", "Maj", "Maj", "Min", "Dim" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "min" || m == "aeolian")
+        {
+            const char* qualities[] = { "Min", "Dim", "Maj", "Min", "Min", "Maj", "Maj" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "dorian")
+        {
+            const char* qualities[] = { "Min", "Min", "Maj", "Maj", "Min", "Dim", "Maj" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "phrygian")
+        {
+            const char* qualities[] = { "Min", "Maj", "Maj", "Min", "Dim", "Maj", "Min" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "lydian")
+        {
+            const char* qualities[] = { "Maj", "Maj", "Min", "Dim", "Maj", "Min", "Min" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "mixolydian")
+        {
+            const char* qualities[] = { "Maj", "Min", "Dim", "Maj", "Min", "Min", "Maj" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "locrian")
+        {
+            const char* qualities[] = { "Dim", "Maj", "Min", "Min", "Maj", "Maj", "Min" };
+            return qualities[degreeIndex];
+        }
+        return "Maj";
+    };
+
+    auto getDiatonic7thQuality = [](const juce::String& mode, int degreeIndex) -> juce::String {
+        juce::String m = mode.trim().toLowerCase();
+        if (m == "maj" || m == "ionian")
+        {
+            const char* qualities[] = { "Maj7", "Min7", "Min7", "Maj7", "7", "Min7", "m7b5" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "min" || m == "aeolian")
+        {
+            const char* qualities[] = { "Min7", "m7b5", "Maj7", "Min7", "Min7", "Maj7", "7" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "dorian")
+        {
+            const char* qualities[] = { "Min7", "Min7", "Maj7", "7", "Min7", "m7b5", "Maj7" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "phrygian")
+        {
+            const char* qualities[] = { "Min7", "Maj7", "7", "Min7", "m7b5", "Maj7", "Min7" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "lydian")
+        {
+            const char* qualities[] = { "Maj7", "7", "Min7", "m7b5", "Maj7", "Min7", "Min7" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "mixolydian")
+        {
+            const char* qualities[] = { "7", "Min7", "m7b5", "Maj7", "Min7", "Min7", "Maj7" };
+            return qualities[degreeIndex];
+        }
+        else if (m == "locrian")
+        {
+            const char* qualities[] = { "m7b5", "Maj7", "Min7", "Min7", "Maj7", "7", "Min7" };
+            return qualities[degreeIndex];
+        }
+        return "Maj7";
+    };
+
+    if (oldScaleDegreeIndex != -1 && oldScaleDegreeIndex < newDiatonicRoots.size())
+    {
+        cb.root = newDiatonicRoots[oldScaleDegreeIndex];
+        
+        juce::String oldQ = cb.quality;
+        if (oldQ == "Maj" || oldQ == "Min" || oldQ == "Dim" || oldQ == "Aug")
+        {
+            cb.quality = getDiatonicTriadQuality (newMode, oldScaleDegreeIndex);
+        }
+        else if (oldQ == "Maj7" || oldQ == "Min7" || oldQ == "7" || oldQ == "m7b5" || oldQ == "Dim7")
+        {
+            cb.quality = getDiatonic7thQuality (newMode, oldScaleDegreeIndex);
+        }
+        else
+        {
+            juce::String diatonicTriad = getDiatonicTriadQuality (newMode, oldScaleDegreeIndex);
+            if (diatonicTriad == "Min")
+            {
+                if (oldQ.containsIgnoreCase ("Maj"))
+                    cb.quality = oldQ.replace ("Maj", "Min");
+            }
+            else if (diatonicTriad == "Maj")
+            {
+                if (oldQ.containsIgnoreCase ("Min"))
+                    cb.quality = oldQ.replace ("Min", "Maj");
+            }
+        }
+    }
+    else
+    {
+        juce::String oldKeyRoot = oldKey.upToFirstOccurrenceOf (" ", false, false).trim();
+        juce::String newKeyRoot = newKey.upToFirstOccurrenceOf (" ", false, false).trim();
+        
+        int oldKeyPitch = getPitchClass (oldKeyRoot);
+        int newKeyPitch = getPitchClass (newKeyRoot);
+        int semitoneShift = (newKeyPitch - oldKeyPitch + 12) % 12;
+        
+        int newRootPitch = (oldRootPitch + semitoneShift) % 12;
+        juce::StringArray pitches = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+        cb.root = pitches[newRootPitch];
+    }
+
+    auto* def = ChordDatabase::getInstance().getChord (cb.root, cb.quality, cb.inversion);
+    if (def != nullptr)
+        cb.name = def->name;
+    else
+        cb.name = cb.root + " " + cb.quality;
+
+    if (cb.customBassNote.isNotEmpty())
+    {
+        juce::String oldKeyRoot = oldKey.upToFirstOccurrenceOf (" ", false, false).trim();
+        juce::String newKeyRoot = newKey.upToFirstOccurrenceOf (" ", false, false).trim();
+        int oldKeyPitch = getPitchClass (oldKeyRoot);
+        int newKeyPitch = getPitchClass (newKeyRoot);
+        int semitoneShift = (newKeyPitch - oldKeyPitch + 12) % 12;
+        
+        int oldBassPitch = getPitchClass (cb.customBassNote);
+        int newBassPitch = (oldBassPitch + semitoneShift) % 12;
+        juce::StringArray pitches = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
+        cb.customBassNote = pitches[newBassPitch];
+        cb.name = cb.root + " " + cb.quality + "/" + cb.customBassNote;
+    }
+    
+    cb.midiNotes = resolveChordMidiNotes (cb);
+}
+
+
 struct TrackSettings
 {
     bool enabled = true;
@@ -525,6 +784,30 @@ public:
     {
         sendChangeMessage(); // Notifies UI to repaint
     }
+
+    void changeActiveKeyAndMode (const juce::String& newKey)
+    {
+        juce::String oldKey = activeKey;
+        if (oldKey == newKey)
+            return;
+            
+        // Transpose all chords in the active list
+        for (int i = 0; i < chords.size(); ++i)
+        {
+            auto cb = chords[i];
+            transposeChordBlockToNewKey (cb, oldKey, newKey);
+            chords.set (i, cb);
+        }
+        
+        activeKey = newKey;
+        
+        // Also update the active section's blocks and key
+        saveActiveSection();
+        
+        sendProgressionToAudioThread();
+        notifyChanges();
+    }
+
 
 private:
     ChordcraftAudioProcessor* audioProcessor = nullptr;
