@@ -12,4 +12,5 @@ Builds/
 .DS_Store
 
 # Fastlane API Keys & Service Accounts
+fastlane-key.json
 project-*.json
