@@ -10,3 +10,6 @@ Builds/
 *.zip
 *.ninja*
 .DS_Store
+
+# Fastlane API Keys & Service Accounts
+project-*.json
