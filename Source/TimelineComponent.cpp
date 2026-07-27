@@ -291,11 +291,12 @@ void TimelineComponent::mouseUp (const juce::MouseEvent& event)
             cb.isSelected = true;
             ThemeManager::triggerHapticImpact(); 
             
-            if (arrangement.isChordPreviewEnabled)
+            if (arrangement.isChordPreviewEnabled && ! arrangement.isPlaying())
             {
                 previewBlockIndex = dragStartIndex;
                 arrangement.triggerPreview (cb, arrangement.trackLanes);
             }
+            arrangement.saveActiveSection();
         }
         arrangement.notifyChanges();
     }

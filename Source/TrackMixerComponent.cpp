@@ -187,7 +187,7 @@ TrackMixerComponent::MixerListContent::MixerListContent (TrackMixerComponent& o)
         TrackSettings ts;
         ts.enabled = true;
         ts.gmProgramNumber = 0;
-        ts.patternId = "drums_rock_basic_+_8th_hats_742";
+        ts.patternId = "";
         ts.volume = 0.6f;
         ts.isDrums = true;
         owner.arrangement.trackLanes.push_back (ts);

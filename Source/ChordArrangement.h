@@ -416,7 +416,7 @@ public:
         TrackSettings drumTs;
         drumTs.enabled = true;
         drumTs.gmProgramNumber = 0;
-        drumTs.patternId = "drums_rock_basic_+_8th_hats_742";
+        drumTs.patternId = "";
         drumTs.volume = 0.6f;
         drumTs.isDrums = true;
         defaultSection.tracks.push_back (drumTs);
@@ -455,12 +455,23 @@ public:
             {
                 wasPreviewing = false;
                 
-                // Perfectly restore UI to currently selected tab
+                // Preserve current selection state before restoring section blocks
+                juce::Array<bool> selectionStates;
+                for (int i = 0; i < chords.size(); ++i)
+                    selectionStates.add (chords[i].isSelected);
+
+                // Restore UI to currently selected tab
                 if (activeSectionIndex >= 0 && activeSectionIndex < (int)sections.size())
                 {
                     auto& sec = sections[activeSectionIndex];
                     chords.clear();
-                    for (auto& cb : sec.blocks) chords.add (cb);
+                    for (int i = 0; i < (int)sec.blocks.size(); ++i)
+                    {
+                        auto cb = sec.blocks[i];
+                        if (i < selectionStates.size())
+                            cb.isSelected = selectionStates[i];
+                        chords.add (cb);
+                    }
                     trackLanes = sec.tracks;
                     bpm = (float) sec.bpm;
                     activeKey = sec.currentKey;
@@ -647,7 +658,7 @@ public:
         TrackSettings drumTs;
         drumTs.enabled = true;
         drumTs.gmProgramNumber = 0;
-        drumTs.patternId = "drums_rock_basic_+_8th_hats_742";
+        drumTs.patternId = "";
         drumTs.volume = 0.6f;
         drumTs.isDrums = true;
         defaultSection.tracks.push_back (drumTs);
